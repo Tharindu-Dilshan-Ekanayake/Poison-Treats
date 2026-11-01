@@ -1,14 +1,11 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 
 import { sfx } from '../audio/sfx'
-import { DATA, emoteById, titleById } from '../game/layout'
-import { useSettings } from '../game/quality'
+import { emoteById, titleById } from '../game/layout'
 import { useGame } from '../net/gameStore'
 import { bubbles } from '../net/liveState'
 import { send } from '../net/api'
 import { money, useNow } from './format'
-
-const NUMBERS = Array.from({ length: DATA.numberMax - DATA.numberMin + 1 }, (_, i) => DATA.numberMin + i)
 
 const secondsLeft = (endsAt, now) => Math.max(0, Math.ceil((endsAt - now) / 1000))
 
@@ -37,116 +34,86 @@ function LeaveButton({ label = 'Leave', forfeit = false }) {
   )
 }
 
-function PowerButton({ icon, label, price, disabled, onClick }) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className="btn-3d press flex flex-1 items-center justify-center gap-2 bg-gradient-to-b from-[#4fd8ff] to-[#2a7bff] px-2 py-1.5 text-white disabled:opacity-45"
-    >
-      <span className="text-2xl leading-none">{icon}</span>
-      <span className="flex flex-col items-start leading-tight">
-        <span className="stroke-thin text-sm font-bold">{label}</span>
-        <span className="stroke-thin text-xs font-bold text-[#c8ffc8]">{money(price)}</span>
-      </span>
-    </button>
-  )
-}
-
-const ANSWER_STYLE = {
-  higher: { label: 'HIGHER', arrow: '⬆', anim: 'arrow-up', bg: 'from-[#5dff7a] to-[#18b84a]', chip: 'bg-[#22c55e]' },
-  lower: { label: 'LOWER', arrow: '⬇', anim: 'arrow-down', bg: 'from-[#ffb04d] to-[#ff5a1f]', chip: 'bg-[#f97316]' },
-  correct: { label: 'CORRECT!', arrow: '🎯', anim: '', bg: 'from-[#fff15c] to-[#ffb800]', chip: 'bg-[#eab308]' },
-}
-
 /**
- * The guess being answered, big in the middle of the screen: "You guessed 50" with
- * a drumroll, then the answer slamming in as HIGHER ⬆ / LOWER ⬇. Both players see
- * it, each from their own side.
+ * What's happening right now, in one big line under the VS bar: poison a treat,
+ * your turn to eat, or who is choosing.
  */
-function RevealCard({ reveal }) {
-  const style = reveal.answer ? ANSWER_STYLE[reveal.answer] : null
-  const who = reveal.mine ? 'You guessed' : 'They guessed'
-  const detail = !reveal.answer
-    ? reveal.mine
-      ? 'Is it…'
-      : 'Is it your number?'
-    : reveal.answer === 'correct'
-      ? reveal.mine
-        ? 'You got it!'
-        : 'They got your number!'
-      : reveal.mine
-        ? `Their number is ${reveal.answer} than ${reveal.n}`
-        : `You told them: ${reveal.answer} than ${reveal.n}`
-
-  // One compact row in the sky under the VS bar, clear of the players' faces.
+function TurnBanner({ match, theirName }) {
+  let text = null
+  let tone = 'text-white'
+  if (match.phase === 'poisoning') {
+    if (match.myPoison < 0) {
+      text = 'Tap a treat to POISON it 🧪'
+      tone = 'text-[#7dff3a]'
+    } else {
+      text = `Waiting for ${theirName} to poison one… 🤫`
+    }
+  } else if (match.phase === 'eating') {
+    if (match.pending) {
+      text = 'Munching… 😬'
+    } else if (match.myTurn) {
+      text = 'Your turn! Pick a treat to eat 🍬'
+      tone = 'text-[#ffe23d]'
+    } else {
+      text = `${theirName} is choosing a treat…`
+    }
+  }
+  if (!text) return null
   return (
-    <div className="reveal-pos pointer-events-none absolute left-1/2 z-40 -translate-x-1/2">
-      <div className="ui-panel pop-in flex items-center gap-3 px-3 py-2">
-        <div className="flex flex-col items-center gap-1">
-          <div className="stroke-thin whitespace-nowrap text-xs font-bold text-white/90">{who}</div>
-          <div
-            className={`btn-3d studs flex size-16 items-center justify-center bg-[#ffd92e] ${reveal.answer ? '' : 'reveal-pulse'}`}
-          >
-            <span className="stroke-text text-[2.2rem] font-bold leading-none text-white">{reveal.n}</span>
-          </div>
-        </div>
-        <div className="flex min-w-[11rem] flex-col items-center gap-1.5">
-          {style ? (
-            <div
-              key={reveal.answer}
-              className={`slam btn-3d flex items-center gap-2 bg-gradient-to-b px-4 py-1 ${style.bg}`}
-            >
-              <span className={`stroke-text text-[1.9rem] leading-none text-white ${style.anim}`}>{style.arrow}</span>
-              <span className="stroke-text text-[1.9rem] font-bold leading-none text-white">{style.label}</span>
-              {reveal.answer !== 'correct' && (
-                <span className={`stroke-text text-[1.9rem] leading-none text-white ${style.anim}`}>{style.arrow}</span>
-              )}
-            </div>
-          ) : (
-            <div className="stroke-text text-[1.9rem] font-bold leading-none text-white">🤔 …</div>
-          )}
-          <div className="stroke-thin text-center text-sm font-bold text-white">{detail}</div>
-        </div>
+    <div className="reveal-pos pointer-events-none absolute left-1/2 z-30 w-[94vw] -translate-x-1/2 text-center">
+      <span key={text} className={`stroke-text pop-in inline-block text-[1.7rem] font-bold leading-tight ${tone}`}>
+        {text}
+      </span>
+    </div>
+  )
+}
+
+/** The outcome of the latest bite at this table, slammed onto the screen. */
+function BiteBanner() {
+  const bite = useGame((s) => s.bite)
+  const now = useNow(200)
+  if (!bite || bite.until < now) return null
+  return (
+    <Banner className="top-[38%]">
+      <div key={bite.until} className="slam">
+        {bite.poisoned ? (
+          <div className="stroke-text text-[4rem] font-bold leading-none text-[#7dff3a]">POISONED! ☠️</div>
+        ) : (
+          <>
+            <div className="stroke-text text-[4rem] font-bold leading-none text-[#5cff5c]">SAFE! 😋</div>
+            {bite.reward > 0 && (
+              <div className="stroke-text mt-1 text-2xl font-bold text-[#ffe23d]">+{money(bite.reward)}</div>
+            )}
+          </>
+        )}
       </div>
-    </div>
+    </Banner>
   )
 }
 
-/** Guesses so far as little chips: "50 ⬇  25 ⬆  37 ⬇". */
-function HistoryChips({ label, history }) {
-  if (!history?.length) return null
+/** Reminds the player which treat is their own poison (it glows green). */
+function Legend({ match }) {
+  if (match.myPoison < 0) return null
   return (
-    <div className="flex flex-wrap items-center justify-center gap-1">
-      <span className="stroke-thin mr-1 text-sm font-bold text-white/85">{label}</span>
-      {history.map((g, i) => {
-        const style = ANSWER_STYLE[g.answer]
-        return (
-          <span
-            key={i}
-            className={`rounded-md border-2 border-black/60 px-1.5 text-sm font-bold text-white ${style.chip}`}
-          >
-            <span className="stroke-thin">
-              {g.n} {style.arrow}
-            </span>
-          </span>
-        )
-      })}
+    <div className="ui-panel flex items-center gap-1.5 px-2 py-1 text-xs font-bold text-white">
+      <span className="inline-block size-3 rounded-full border border-black/60 bg-[#2fd14f]" />
+      <span className="stroke-thin">Your poison</span>
     </div>
   )
 }
 
-/** What a duelist last said (an emote, "Is your number 50? 🤔", "Higher 👆"), while it lasts. */
+/** What a player last said (an emote, "SAFE 😋", "Poisoned one 🧪"), while it lasts. */
 function speechOf(id, now) {
   const b = id ? bubbles.get(id) : null
   return b && b.text && b.until > now ? b.text : null
 }
 
-/** One side of the VS bar: title, name, level/streak, and a speech bubble underneath. */
-function DuelistCard({ player, isSelf, active, speech, align }) {
+/** One side of the VS bar: title, name, level/streak/treats eaten, and a speech bubble. */
+function DuelistCard({ player, isSelf, active, speech, align, safe }) {
   const title = titleById(player?.title)
-  const badges = [`Lv ${player?.level || 1}`, player?.streak > 0 ? `🔥 ${player.streak}` : ''].filter(Boolean).join('  ')
+  const badges = [`Lv ${player?.level || 1}`, player?.streak > 0 ? `🔥 ${player.streak}` : '', safe > 0 ? `🍬 ${safe}` : '']
+    .filter(Boolean)
+    .join('  ')
   return (
     <div className={`flex min-w-0 flex-1 flex-col gap-1.5 ${align === 'left' ? 'items-start' : 'items-end'}`}>
       <div
@@ -183,9 +150,8 @@ function DuelistCard({ player, isSelf, active, speech, align }) {
 }
 
 /**
- * Top of the screen during a duel: opponent | timer + whose turn | you. The sides
- * match where each player sits on screen (seat 0 is on the right of the duel camera),
- * and what each one says shows under their card instead of over their heads.
+ * Top of the screen during a match: you | timer + whose turn | opponent. What each
+ * one says shows under their card instead of over their heads.
  */
 function DuelBar({ match, now }) {
   const selfId = useGame((s) => s.selfId)
@@ -201,33 +167,21 @@ function DuelBar({ match, now }) {
   const left = secondsLeft(match.endsAt, now)
   let status
   if (match.phase === 'countdown') status = 'GET READY'
-  else if (match.phase === 'choosing') status = match.myNumber == null ? 'PICK A NUMBER' : 'WAITING…'
+  else if (match.phase === 'poisoning') status = match.myPoison < 0 ? 'POISON ONE' : 'WAITING…'
   else if (match.myTurn) status = 'YOUR TURN'
-  else if (match.pending) status = 'ANSWERING…'
+  else if (match.pending) status = 'MUNCHING…'
   else status = 'THEIR TURN'
 
-  const myCard = (
-    <DuelistCard
-      key="me"
-      player={self}
-      isSelf
-      active={match.myTurn}
-      speech={speechOf(selfId, now)}
-      align={match.seat === 0 ? 'right' : 'left'}
-    />
-  )
-  const theirCard = (
-    <DuelistCard
-      key="them"
-      player={them}
-      active={match.theirTurn}
-      speech={speechOf(match.opponent, now)}
-      align={match.seat === 0 ? 'left' : 'right'}
-    />
-  )
   return (
     <div className="hud-top pointer-events-none absolute left-1/2 z-40 flex w-[min(94vw,36rem)] -translate-x-1/2 items-start gap-2">
-      {match.seat === 0 ? theirCard : myCard}
+      <DuelistCard
+        player={self}
+        isSelf
+        active={match.myTurn}
+        speech={speechOf(selfId, now)}
+        align="left"
+        safe={match.mySafe}
+      />
       <div className="flex shrink-0 flex-col items-center gap-1 pt-0.5">
         <div
           className={`btn-3d flex size-12 items-center justify-center text-xl font-bold text-white ${
@@ -244,135 +198,27 @@ function DuelBar({ match, now }) {
           {status}
         </span>
       </div>
-      {match.seat === 0 ? myCard : theirCard}
-    </div>
-  )
-}
-
-/** Paid helpers, shown under the guess grid. */
-function PowerButtons({ match }) {
-  const cash = useGame((s) => s.profile?.cash ?? 0)
-  const use = (kind) => {
-    sfx.click()
-    send({ t: 'power', kind })
-  }
-  const revealed = match.revealed != null
-  return (
-    <div className="mt-2 flex w-full gap-2">
-      <PowerButton
-        icon="❓"
-        label="HINT"
-        price={DATA.powers.hint}
-        disabled={revealed || match.range[1] - match.range[0] < 3 || cash < DATA.powers.hint}
-        onClick={() => use('hint')}
+      <DuelistCard
+        player={them}
+        active={match.theirTurn}
+        speech={speechOf(match.opponent, now)}
+        align="right"
+        safe={match.theirSafe}
       />
-      <PowerButton
-        icon="🔍"
-        label="REVEAL"
-        price={DATA.powers.reveal}
-        disabled={revealed || cash < DATA.powers.reveal}
-        onClick={() => use('reveal')}
-      />
-    </div>
-  )
-}
-
-/**
- * The 1-100 grid: pick a secret number, or guess the opponent's. Numbers the
- * Higher/Lower answers (or a hint) have ruled out are greyed and crossed out.
- */
-function NumberGrid({ match, mode }) {
-  const { blur } = useSettings()
-  const now = useNow(250)
-  const scroller = useRef(null)
-  const [lo, hi] = mode === 'guess' ? match.range : [DATA.numberMin, DATA.numberMax]
-
-  // Jump straight to the part of the grid that's still in play.
-  useEffect(() => {
-    const el = scroller.current?.querySelector(`[data-n="${lo}"]`)
-    el?.scrollIntoView({ block: 'start' })
-  }, [lo])
-
-  const choose = (n) => {
-    sfx.click()
-    send({ t: mode === 'choose' ? 'pick' : 'guess', n })
-  }
-  const left = secondsLeft(match.endsAt, now)
-
-  return (
-    <div
-      className={`pointer-events-auto absolute inset-0 z-30 flex items-center justify-center bg-black/30 ${
-        blur ? 'backdrop-blur-sm' : ''
-      }`}
-    >
-      <div className="ui-panel pop-in flex w-[min(92vw,30rem)] flex-col items-center p-3">
-        <div className="flex w-full items-center justify-between gap-2">
-          <h2 className="stroke-text text-2xl font-bold leading-tight text-white">
-            {mode === 'choose' ? 'Choose A Number 🤔' : 'Guess Their Number 👀'}
-          </h2>
-          <span
-            className={`btn-3d flex size-10 shrink-0 items-center justify-center text-lg font-bold text-white ${
-              left <= 5 ? 'bg-[#e53935]' : 'bg-[#2d6b78]'
-            }`}
-          >
-            <span className="stroke-thin">{left}</span>
-          </span>
-        </div>
-        <p className="mb-2 mt-0.5 w-full text-sm font-semibold text-white/80">
-          {mode === 'choose'
-            ? 'Your opponent will try to guess it'
-            : match.revealed != null
-              ? `Their number is ${match.revealed}!`
-              : `It's between ${lo} and ${hi}`}
-        </p>
-        {mode === 'guess' && (
-          <div className="mb-2 w-full">
-            <HistoryChips label="Your guesses:" history={match.myHistory} />
-          </div>
-        )}
-        <div
-          ref={scroller}
-          className="game-scroll grid max-h-[min(58vh,26rem)] w-full grid-cols-5 gap-1.5 overflow-y-auto pr-1 portrait:max-h-[52vh]"
-        >
-          {NUMBERS.map((n) => {
-            const out = n < lo || n > hi
-            return (
-              <button
-                type="button"
-                key={n}
-                data-n={n}
-                disabled={out}
-                onClick={() => choose(n)}
-                className={`btn-3d press studs relative flex aspect-square items-center justify-center text-[1.7rem] font-bold ${
-                  out ? 'bg-[#5d6168]' : 'bg-[#ffd92e]'
-                }`}
-              >
-                {out && <span className="absolute inset-0 flex items-center justify-center text-[2.4rem] text-[#ff2d2d]">✖</span>}
-                <span className="stroke-text relative text-white">{n}</span>
-              </button>
-            )
-          })}
-        </div>
-        {mode === 'guess' && <PowerButtons match={match} />}
-      </div>
     </div>
   )
 }
 
 /** Quick phrases bought in the Emote Shop, said in a bubble over your head. */
-function EmotePanel({ hiddenInPortrait }) {
+function EmotePanel() {
   const owned = useGame((s) => s.profile?.ownedEmotes) || []
   const isOpen = useGame((s) => s.emotesOpen)
   const toggle = useGame((s) => s.toggleEmotes)
 
   return (
-    <div
-      className={`pointer-events-none absolute bottom-3 left-3 z-40 flex flex-col items-start gap-2 ${
-        hiddenInPortrait ? 'portrait:hidden' : ''
-      }`}
-    >
+    <div className="pointer-events-none absolute bottom-3 left-3 z-40 flex flex-col items-start gap-2">
       {isOpen && (
-        <div className="ui-panel pop-in pointer-events-auto w-[15rem] p-2">
+        <div className="ui-panel pop-in pointer-events-auto w-[13rem] p-2">
           <div className="game-scroll flex max-h-[min(30vh,14rem)] flex-col gap-1.5 overflow-y-auto pr-1">
             {owned.map((id) => {
               const e = emoteById(id)
@@ -422,8 +268,8 @@ function ResultBanner() {
   const subtitle = result.win
     ? `+${money(result.reward)} 💵`
     : result.reason === 'forfeit' || result.reason === 'afk'
-      ? 'You left the duel'
-      : `Their number was ${result.theirNumber}${result.reward ? `  ·  +${money(result.reward)} for playing` : ''}`
+      ? 'You left the match'
+      : `You ate the poison!${result.reward ? `  ·  +${money(result.reward)} for playing` : ''}`
 
   return (
     <Banner className="top-[30%]">
@@ -431,7 +277,7 @@ function ResultBanner() {
         <div
           className={`stroke-text text-[3.6rem] font-bold leading-none ${result.win ? 'text-[#ffe23d]' : 'text-[#ff4040]'}`}
         >
-          {result.win ? 'YOU WIN! 🏆' : 'YOU LOSE 💀'}
+          {result.win ? 'YOU WIN! 🏆' : result.reason === 'poisoned' ? 'YOU LOSE ☠️' : 'YOU LOSE 💀'}
         </div>
         <div className="stroke-text mt-2 text-2xl font-bold text-white">{subtitle}</div>
       </div>
@@ -439,28 +285,31 @@ function ResultBanner() {
   )
 }
 
-/** Everything on screen while seated at a table: waiting, countdown, the duel. */
+/** Everything on screen while seated at a table: waiting, countdown, the match. */
 export function MatchUI() {
   const match = useGame((s) => s.match)
-  const reveal = useGame((s) => s.reveal)
+  const theirName = useGame((s) => (match?.opponent ? s.players[match.opponent]?.name : null)) || 'Opponent'
   const now = useNow(150)
 
-  // A wood-block tick on each second of the "Starting in 3, 2, 1" countdown.
+  // A wood-block tick on each second of the "Starting in 3, 2, 1" countdown...
   const countdown = match?.phase === 'countdown' ? Math.max(1, secondsLeft(match.endsAt, now)) : 0
   useEffect(() => {
     if (countdown) sfx.tick()
   }, [countdown])
-  const revealing = Boolean(match && reveal && reveal.until > now)
-  const gridOpen =
-    (match?.phase === 'choosing' && match.myNumber == null) ||
-    (match?.phase === 'guessing' && match.myTurn && !revealing)
+  // ...and on the last three seconds of your own pick.
+  const myPick = (match?.phase === 'eating' && match.myTurn) || (match?.phase === 'poisoning' && match.myPoison < 0)
+  const urgent = myPick ? secondsLeft(match.endsAt, now) : 0
+  useEffect(() => {
+    if (urgent > 0 && urgent <= 3) sfx.tick()
+  }, [urgent])
+
+  const inMatch = match && (match.phase === 'poisoning' || match.phase === 'eating')
 
   return (
     <>
-      {match && <EmotePanel hiddenInPortrait={gridOpen} />}
-      {match && !gridOpen && ['countdown', 'choosing', 'guessing'].includes(match.phase) && (
-        <DuelBar match={match} now={now} />
-      )}
+      {match && <EmotePanel />}
+      {match && (match.phase === 'countdown' || inMatch) && <DuelBar match={match} now={now} />}
+      {inMatch && <TurnBanner match={match} theirName={theirName} />}
 
       {match?.phase === 'waiting' && (
         <div className="pointer-events-none absolute bottom-[16%] left-1/2 z-30 flex -translate-x-1/2 flex-col items-center gap-2">
@@ -482,32 +331,14 @@ export function MatchUI() {
         </>
       )}
 
-      {match?.phase === 'choosing' &&
-        (match.myNumber == null ? (
-          <NumberGrid match={match} mode="choose" />
-        ) : null)}
-
-      {match?.phase === 'guessing' && (
-        <>
-          {revealing ? (
-            <RevealCard reveal={reveal} />
-          ) : match.myTurn ? (
-            <NumberGrid match={match} mode="guess" />
-          ) : (
-            match.theirHistory?.length > 0 && (
-              <div className="ui-panel pointer-events-none absolute bottom-3 left-1/2 z-30 max-w-[min(56vw,30rem)] -translate-x-1/2 px-3 py-1.5">
-                <HistoryChips label="Their guesses:" history={match.theirHistory} />
-              </div>
-            )
-          )}
-          {!gridOpen && (
-            <div className="pointer-events-none absolute bottom-3 right-3 z-40">
-              <LeaveButton label="Quit duel" forfeit />
-            </div>
-          )}
-        </>
+      {inMatch && (
+        <div className="pointer-events-none absolute bottom-3 right-3 z-40 flex flex-col items-end gap-2">
+          <Legend match={match} />
+          <LeaveButton label="Quit match" forfeit={match.phase === 'eating'} />
+        </div>
       )}
 
+      <BiteBanner />
       <ResultBanner />
     </>
   )

@@ -596,6 +596,15 @@ export function animateRig(rig, motion) {
     swing(rig, 'ArmL1', -0.85)
     swing(rig, 'ArmR1', -0.85)
     swing(rig, 'Spine1', Math.sin(time * 1.6) * 0.02)
+    // Eating a treat: right hand up to the mouth, a few quick chews, hand back down.
+    const eat = motion.eat || 0
+    if (eat > 0) {
+      const up = smoothstep(eat / 0.22) * (1 - smoothstep((eat - 0.8) / 0.2))
+      swing(rig, 'ArmR1', -0.85 - up * 1.55)
+      sway(rig, 'ArmR1', up * 0.35)
+      swing(rig, 'ArmR2', -up * 1.1)
+      swing(rig, 'Neck1', Math.sin(time * 22) * 0.07 * up)
+    }
     return
   }
 

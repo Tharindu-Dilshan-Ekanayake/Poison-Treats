@@ -27,7 +27,7 @@ function createBlobTexture() {
 /** [x, z, width, depth] of every shadow, offset a little away from the sun. */
 function shadowSpots() {
   const spots = []
-  for (const t of DATA.tables) spots.push([t.x + 0.15, t.z + 0.4, TABLE.width + 1.4, TABLE.depth + 2.6])
+  for (const t of DATA.tables) spots.push([t.x + 0.1, t.z, TABLE.width + 0.8, TABLE.depth + 3.2])
   for (const [x, z] of TREES) spots.push([x + 0.4, z, 4.2, 4.2])
   for (const side of [-1, 1]) spots.push([side * ARCH.halfWidth + 0.3, ARCH.z, 2.6, 2.6])
   for (const c of SHOP_CHAIRS) spots.push([c.shop[0] + 0.2, c.shop[1], 2.8, 2.8])

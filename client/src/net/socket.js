@@ -8,6 +8,8 @@ import { getSettings } from '../game/quality'
 import { useGame } from './gameStore'
 import {
   bubbles,
+  candyBites,
+  eatingSince,
   effectQueue,
   hiddenUntil,
   localPlayer,
@@ -38,9 +40,11 @@ const ROOM_NAME = DATA.bloxity.roomName
 const HOSTING_ID = import.meta.env.VITE_BLOXITY_HOSTING_ID || ''
 const POS_INTERVAL_MS = 100
 const HEARTBEAT_MS = 1000
-const LOSS_HIDE_MS = 2200
-/** How long the Higher / Lower answer stays on screen. */
-const REVEAL_HOLD_MS = 1700
+/** The poisoned player turns green and wobbles this long before falling apart. */
+const POISON_DELAY_MS = 700
+const LOSS_HIDE_MS = 2000
+/** Bites further away than this are seen but not heard. */
+const HEAR_RANGE = 12
 /** A cold start can take ~45 s; stop retrying after this long without a room. */
 const GIVE_UP_MS = 60000
 /** Players already in the room when we join get playerInRoom, later ones playerJoined. */
@@ -235,6 +239,8 @@ function resetWorld() {
   remoteEmotes.clear()
   bubbles.clear()
   hiddenUntil.clear()
+  candyBites.clear()
+  eatingSince.clear()
   localPlayer.seat = null
   localPlayer.emote = null
   useGame.setState({ players: {}, tables: {}, match: null })
@@ -411,6 +417,7 @@ function removePlayer(id) {
   remoteSeats.delete(id)
   bubbles.delete(id)
   hiddenUntil.delete(id)
+  eatingSince.delete(id)
   useGame.setState((s) => {
     const players = { ...s.players }
     delete players[id]
@@ -437,6 +444,8 @@ function applyTable(id, t) {
     turn: t.turn || null,
     winner: t.winner || null,
     endsAt: t.endsAt ? t.endsAt - clockOffset : 0,
+    eaten: t.eaten || '',
+    poisons: t.poisons || '',
   }
   indexSeats(table)
   useGame.setState((s) => ({ tables: { ...s.tables, [id]: table } }))
@@ -449,6 +458,13 @@ function withProfileDeadlines(profile) {
   return { ...profile, giftAt: now + profile.giftInMs, questResetAt: now + profile.questResetInMs }
 }
 
+/** Is this table the player's own, or close enough to hear? */
+function isNearby(tableId) {
+  if (useGame.getState().match?.table === tableId) return true
+  const t = DATA.tables.find((x) => x.id === tableId)
+  return Boolean(t) && Math.hypot(t.x - localPlayer.position.x, t.z - localPlayer.position.z) < HEAR_RANGE
+}
+
 function positionOf(id) {
   if (id === useGame.getState().selfId) return localPlayer.position
   const seat = remoteSeats.get(id)
@@ -458,10 +474,9 @@ function positionOf(id) {
 
 /** The server's confirmations come as toasts; each kind gets its sound. */
 function playToastSound(text) {
-  if (/not enough|need \$|busy|full|walk closer|already|too slow|out of time/i.test(text)) sfx.error()
+  if (/not enough|need \$|busy|full|walk closer|already|too slow|out of time|nothing left/i.test(text)) sfx.error()
   else if (/bought|unlocked|claimed/i.test(text)) sfx.buy()
   else if (/quest complete|gift|reward|streak/i.test(text)) sfx.reward()
-  else if (/hint|their number is/i.test(text)) sfx.turn()
 }
 
 const handlers = {
@@ -484,7 +499,8 @@ const handlers = {
     localPlayer.seat = next ? { ...seatPosition(next.table, next.seat), dancing: Boolean(next.won) } : null
 
     if (next && prev) {
-      if (next.phase === 'choosing' && prev.phase !== 'choosing') sfx.go()
+      if (next.phase === 'poisoning' && prev.phase !== 'poisoning') sfx.go()
+      if (next.phase === 'eating' && prev.phase !== 'eating') sfx.go()
       if (next.myTurn && !prev.myTurn) sfx.turn()
     }
     useGame.setState({ match: next })
@@ -503,18 +519,33 @@ const handlers = {
     useGame.setState({ profile: withProfileDeadlines(msg.profile) })
   },
 
-  /** A guess landing, then its Higher / Lower answer, for the reveal card. */
-  duel(msg) {
+  /** Someone at a table picked up a treat: lift it to their mouth and munch. */
+  eat(msg) {
+    const table = useGame.getState().tables[msg.table]
+    const seat = table?.seats.findIndex((s) => s?.id === msg.by) ?? -1
+    if (seat < 0) return
     const now = Date.now()
-    if (msg.t === 'guessed') {
-      sfx.drum()
-      useGame.setState({ reveal: { mine: msg.mine, n: msg.n, answer: null, until: now + 5000 } })
-    } else if (msg.t === 'answer') {
-      if (msg.answer === 'higher') sfx.higher()
-      else if (msg.answer === 'lower') sfx.lower()
-      // A correct guess hands over to the result banner quickly.
-      const hold = msg.answer === 'correct' ? 900 : REVEAL_HOLD_MS
-      useGame.setState({ reveal: { mine: msg.mine, n: msg.n, answer: msg.answer, until: now + hold } })
+    candyBites.set(msg.table, { i: msg.i, seat, start: now })
+    eatingSince.set(msg.by, now)
+    if (isNearby(msg.table)) sfx.munch()
+  },
+
+  /** The outcome of a bite: SAFE, or the poison. */
+  bite(msg) {
+    const now = Date.now()
+    const { selfId, match } = useGame.getState()
+    const mine = msg.by === selfId
+    const here = match?.table === msg.table
+    if (here) {
+      if (msg.poisoned) sfx.poison()
+      else sfx.safe()
+      useGame.setState({
+        bite: { mine, poisoned: msg.poisoned, reward: mine ? msg.reward || 0 : 0, until: now + (msg.poisoned ? 1600 : 1300) },
+      })
+    }
+    if (msg.poisoned && getSettings().particles) {
+      const p = positionOf(msg.by)
+      if (p) effectQueue.push({ kind: 'goo', x: p.x, y: 1.3, z: p.z })
     }
   },
 
@@ -549,28 +580,35 @@ const handlers = {
     const { selfId, match } = useGame.getState()
     const now = Date.now()
 
-    // The particle system only exists on presets that allow particles; queuing
-    // without it would grow the queue forever.
+    // A poisoned player gets a moment to choke before they fall apart.
+    const delay = msg.reason === 'poisoned' ? POISON_DELAY_MS : 0
+    const loserPos = msg.loser && positionOf(msg.loser)
+    const breakApart = () => {
+      // The particle system only exists on presets that allow particles; queuing
+      // without it would grow the queue forever.
+      if (getSettings().particles && loserPos) effectQueue.push({ kind: 'break', x: loserPos.x, y: 1, z: loserPos.z })
+      const until = Date.now() + LOSS_HIDE_MS
+      if (msg.loser === selfId) localPlayer.hiddenUntil = until
+      else if (msg.loser) hiddenUntil.set(msg.loser, until)
+      if (msg.reason === 'poisoned' && isNearby(msg.table)) sfx.splat()
+    }
+    if (delay) setTimeout(breakApart, delay)
+    else breakApart()
     if (getSettings().particles) {
       const winnerPos = msg.winner && positionOf(msg.winner)
       if (winnerPos) effectQueue.push({ kind: 'confetti', x: winnerPos.x, y: 2.5, z: winnerPos.z })
-      const loserPos = msg.loser && positionOf(msg.loser)
-      if (loserPos) effectQueue.push({ kind: 'break', x: loserPos.x, y: 1, z: loserPos.z })
     }
-    if (msg.loser === selfId) localPlayer.hiddenUntil = now + LOSS_HIDE_MS
-    else if (msg.loser) hiddenUntil.set(msg.loser, now + LOSS_HIDE_MS)
 
     if (msg.winner === selfId || msg.loser === selfId) {
       const win = msg.winner === selfId
-      const mySeat = match?.seat ?? 0
-      win ? sfx.win() : sfx.lose()
+      setTimeout(() => (win ? sfx.win() : sfx.lose()), delay)
       useGame.setState({
         result: {
           win,
           reward: win ? msg.reward : msg.consolation || 0,
-          theirNumber: msg.numbers[1 - mySeat],
           reason: msg.reason,
-          until: now + 3800,
+          safe: match?.mySafe ?? 0,
+          until: now + delay + 3800,
         },
       })
     }

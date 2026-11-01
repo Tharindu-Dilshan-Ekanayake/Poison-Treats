@@ -12,7 +12,7 @@ import {
 
 import { DEFAULT_PROPORTIONS } from '../bloxity/store'
 import { useGame } from '../net/gameStore'
-import { avatarAnchors, hiddenUntil, localPlayer, remoteEmotes, remotes, remoteSeats } from '../net/liveState'
+import { avatarAnchors, eatingSince, hiddenUntil, localPlayer, remoteEmotes, remotes, remoteSeats } from '../net/liveState'
 import { mergedBoxes } from './instancing'
 import Nametag from './Nametag'
 import { PLAYER_HEIGHT } from './layout'
@@ -141,7 +141,7 @@ const RemotePlayer = memo(function RemotePlayer({ meta }) {
 
     if (seat) {
       group.position.set(seat.x, 0, seat.z)
-      poseAtSeat(visual, tagRef.current, seat, m, delta)
+      poseAtSeat(visual, tagRef.current, seat, m, delta, eatingSince.get(id))
     } else {
       if (m.seated || m.danceT != null) clearSeatPose(visual, tagRef.current, m)
       r.alpha = Math.min(1, r.alpha + delta / INTERP_S)

@@ -15,23 +15,53 @@ export const PLAYER_HEIGHT = 1.8
 export const SEATED_DROP = -0.36
 export const SEATED_BACK = 0.12
 /**
- * Where a duel's winner dances: up on the tabletop, this far in front of their
+ * Where a match's winner dances: up on the tabletop, this far in front of their
  * seat (towards the table's middle).
  */
-export const DANCE_FORWARD = 0.75
+export const DANCE_FORWARD = 0.85
 
-/** Chairs face -Z, towards their table. */
-export const SEAT_FACING = Math.PI
-
+/**
+ * The two seats face each other across the table: seat 0 on its -Z side looking
+ * +Z (yaw 0), seat 1 on its +Z side looking -Z (yaw PI). `ry` is the avatar's yaw.
+ */
 export function seatPosition(tableId, index) {
   const t = DATA.tables.find((x) => x.id === tableId)
   if (!t) return null
   return {
-    x: t.x + (index === 0 ? -TABLE.seatX : TABLE.seatX),
-    z: t.z + TABLE.seatZ,
-    ry: SEAT_FACING,
+    x: t.x,
+    z: t.z + (index === 0 ? -TABLE.seatZ : TABLE.seatZ),
+    ry: index === 0 ? 0 : Math.PI,
   }
 }
+
+/* ---- Treats ------------------------------------------------------------------- */
+
+export const CANDY = DATA.candies
+export const CANDY_COUNT = CANDY.cols * CANDY.rows
+export const CANDY_RADIUS = 0.135
+export const CANDY_HEIGHT = 0.1
+/** Height of a treat's base: resting on the tablecloth. */
+export const CANDY_Y = TABLE.height + 0.012
+
+/** A treat's offset from its table's centre: columns along X, rows along Z. */
+export function candyOffset(i) {
+  const col = i % CANDY.cols
+  const row = Math.floor(i / CANDY.cols)
+  return [(col - (CANDY.cols - 1) / 2) * CANDY.spacingX, (row - (CANDY.rows - 1) / 2) * CANDY.spacingZ]
+}
+
+/** The treat under a point on the tabletop (table-relative), or -1. */
+export function candyAt(dx, dz) {
+  const col = Math.round(dx / CANDY.spacingX + (CANDY.cols - 1) / 2)
+  const row = Math.round(dz / CANDY.spacingZ + (CANDY.rows - 1) / 2)
+  if (col < 0 || col >= CANDY.cols || row < 0 || row >= CANDY.rows) return -1
+  const i = row * CANDY.cols + col
+  const [cx, cz] = candyOffset(i)
+  return Math.hypot(dx - cx, dz - cz) <= CANDY_RADIUS * 1.35 ? i : -1
+}
+
+/** The giant spinning treat in the middle of the ring of tables. */
+export const CENTERPIECE = DATA.ring
 
 export const SHOP_CHAIRS = DATA.chairs.filter((c) => c.shop)
 
@@ -49,25 +79,26 @@ export const TREES = [
 ]
 
 /**
- * Paving as [x, z, width, depth] rectangles: the central plaza the desks stand
- * on, the walk up from spawn, and the floors of the two shops.
+ * Paving as [x, z, width, depth] rectangles: the round plaza the ring of tables
+ * stands on, the walk up from spawn, the floors of the two shops and the strip
+ * in front of the leaderboards.
  */
 export const PATHS = [
-  [0, 1, 46, 22],
+  [0, -1.5, 34, 32],
   [0, 19, 5, 14],
   [26.5, 0, 8.6, 26],
   [-26.5, 1, 6, 10],
-  [0, -16, 22, 4],
+  [0, -20, 46, 4],
 ]
 
-/** A rug under each desk and its two chairs: [x, z, width, depth]. */
-export const RUGS = DATA.tables.map((t) => [t.x, t.z + 0.45, TABLE.width + 2.2, TABLE.depth + 3.2])
+/** A rug under each table and its two chairs: [x, z, width, depth]. */
+export const RUGS = DATA.tables.map((t) => [t.x, t.z, TABLE.width + 1.4, TABLE.depth + 3.6])
 
 /**
  * The welcome arch over the spawn path: pillars at ±ARCH.halfWidth. Tall enough
  * that the follow camera (~5 units up by default) passes under the beam.
  */
-export const ARCH = { z: 13.6, halfWidth: 3.4, height: 6 }
+export const ARCH = { z: 17.5, halfWidth: 3.4, height: 6 }
 
 /** Rocks along the beach, just outside the fence: [x, z, size]. */
 export const ROCKS = [
@@ -95,6 +126,7 @@ const box = (x, z, w, d) =>
   COLLIDERS.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 })
 
 for (const t of DATA.tables) box(t.x, t.z, TABLE.width, TABLE.depth)
+box(CENTERPIECE.x, CENTERPIECE.z, 3.2, 3.2)
 for (const lb of DATA.leaderboards) box(lb.x, lb.z, 6, 0.6)
 for (const c of SHOP_CHAIRS) box(c.shop[0], c.shop[1], 2, 2)
 box(EMOTE_SHOP.x, EMOTE_SHOP.z, 1.6, 5)
@@ -103,7 +135,7 @@ for (const side of [-1, 1]) box(side * ARCH.halfWidth, ARCH.z, 1.5, 1.5)
 
 /** What the player can interact with by walking up to it and pressing E. */
 export const INTERACTABLES = [
-  ...DATA.tables.map((t) => ({ kind: 'table', id: t.id, x: t.x, z: t.z + 0.6, range: TABLE.sitRange })),
+  ...DATA.tables.map((t) => ({ kind: 'table', id: t.id, x: t.x, z: t.z, range: TABLE.sitRange })),
   ...SHOP_CHAIRS.map((c) => ({ kind: 'chair', id: c.id, x: c.shop[0] - 1.6, z: c.shop[1], range: 2.6 })),
   { kind: 'emoteShop', id: 'emotes', x: EMOTE_SHOP.x + 1.6, z: EMOTE_SHOP.z, range: 3.5 },
 ]

@@ -6,8 +6,9 @@ import { effectQueue } from '../net/liveState'
 import { useDisposable } from './useDisposable'
 
 /**
- * Pooled particle effects: confetti over a duel's winner, and the loser's body
- * "breaking apart" into blocks. Fixed-size pools, preallocated typed arrays, one
+ * Pooled particle effects: confetti over a match's winner, the loser's body
+ * "breaking apart" into blocks, candy crumbs on every bite and a green puff of
+ * poison. Fixed-size pools, preallocated typed arrays, one
  * instanced draw call per effect; nothing is allocated per frame or per spawn.
  *
  * Only mounted on presets with particles enabled (see GameScene).
@@ -15,10 +16,14 @@ import { useDisposable } from './useDisposable'
 
 const CONFETTI = 160
 const PIECES = 32
+const CRUMBS = 48
+const GOO = 40
 const GRAVITY = 9
 
 const CONFETTI_COLORS = ['#ff3b3b', '#ffb21e', '#ffee32', '#3bff6f', '#33c8ff', '#b14dff', '#ff4fb8']
 const PIECE_COLORS = ['#1c1c1c', '#f2f2f2', '#2b4fa8', '#e8b98f']
+const CRUMB_COLORS = ['#e8202a', '#ffffff', '#ff6a6a']
+const GOO_COLORS = ['#2fd14f', '#7dff3a', '#1f9e3a', '#b4ff6a']
 
 const _obj = new Object3D()
 const _color = new Color()
@@ -36,17 +41,17 @@ function createPool(size) {
   }
 }
 
-function spawn(pool, count, x, y, z, speed, up) {
+function spawn(pool, count, x, y, z, speed, up, spread = 0.6, life = 2.2) {
   for (let n = 0; n < count; n += 1) {
     const i = pool.next
     pool.next = (pool.next + 1) % pool.size
     const a = Math.random() * Math.PI * 2
     const r = Math.random() * speed
     const o = i * 3
-    pool.life[i] = 2.2 + Math.random()
-    pool.pos[o] = x + (Math.random() - 0.5) * 0.6
-    pool.pos[o + 1] = y + Math.random() * 0.8
-    pool.pos[o + 2] = z + (Math.random() - 0.5) * 0.6
+    pool.life[i] = life + Math.random() * life * 0.45
+    pool.pos[o] = x + (Math.random() - 0.5) * spread
+    pool.pos[o + 1] = y + Math.random() * spread * 1.3
+    pool.pos[o + 2] = z + (Math.random() - 0.5) * spread
     pool.vel[o] = Math.cos(a) * r
     pool.vel[o + 1] = up + Math.random() * up
     pool.vel[o + 2] = Math.sin(a) * r
@@ -97,7 +102,14 @@ function step(pool, mesh, dt, drag, floor) {
 export function Effects() {
   const confettiRef = useRef(null)
   const piecesRef = useRef(null)
-  const pools = useRef({ confetti: createPool(CONFETTI), pieces: createPool(PIECES) })
+  const crumbsRef = useRef(null)
+  const gooRef = useRef(null)
+  const pools = useRef({
+    confetti: createPool(CONFETTI),
+    pieces: createPool(PIECES),
+    crumbs: createPool(CRUMBS),
+    goo: createPool(GOO),
+  })
 
   const res = useDisposable(
     () => ({
@@ -105,6 +117,9 @@ export function Effects() {
       confettiMaterial: new MeshBasicMaterial({ side: DoubleSide }),
       pieceGeometry: new BoxGeometry(0.28, 0.28, 0.28),
       pieceMaterial: new MeshLambertMaterial(),
+      crumbGeometry: new BoxGeometry(0.045, 0.045, 0.045),
+      gooGeometry: new BoxGeometry(0.12, 0.12, 0.12),
+      flatMaterial: new MeshBasicMaterial(),
     }),
     [],
   )
@@ -116,26 +131,37 @@ export function Effects() {
     for (let i = 0; i < PIECES; i += 1) {
       piecesRef.current.setColorAt(i, _color.set(PIECE_COLORS[i % PIECE_COLORS.length]))
     }
-    confettiRef.current.visible = false
-    piecesRef.current.visible = false
+    for (let i = 0; i < CRUMBS; i += 1) {
+      crumbsRef.current.setColorAt(i, _color.set(CRUMB_COLORS[i % CRUMB_COLORS.length]))
+    }
+    for (let i = 0; i < GOO; i += 1) {
+      gooRef.current.setColorAt(i, _color.set(GOO_COLORS[i % GOO_COLORS.length]))
+    }
+    for (const r of [confettiRef, piecesRef, crumbsRef, gooRef]) r.current.visible = false
   }, [])
 
   useFrame((_state, delta) => {
     const dt = Math.min(delta, 0.05)
-    const { confetti, pieces } = pools.current
+    const { confetti, pieces, crumbs, goo } = pools.current
     while (effectQueue.length) {
       const e = effectQueue.shift()
       if (e.kind === 'confetti') spawn(confetti, 80, e.x, e.y, e.z, 4, 4)
+      else if (e.kind === 'crumbs') spawn(crumbs, 8, e.x, e.y, e.z, 1.4, 1.2, 0.12, 0.9)
+      else if (e.kind === 'goo') spawn(goo, 20, e.x, e.y, e.z, 1.8, 2.4, 0.4, 1.2)
       else spawn(pieces, 10, e.x, e.y, e.z, 3, 3)
     }
     step(confetti, confettiRef.current, dt, 1.5, 0.02)
     step(pieces, piecesRef.current, dt, 0, 0.14)
+    step(crumbs, crumbsRef.current, dt, 0, 0.84)
+    step(goo, gooRef.current, dt, 1.2, 0.05)
   })
 
   return (
     <>
       <instancedMesh ref={confettiRef} args={[res.confettiGeometry, res.confettiMaterial, CONFETTI]} frustumCulled={false} />
       <instancedMesh ref={piecesRef} args={[res.pieceGeometry, res.pieceMaterial, PIECES]} frustumCulled={false} />
+      <instancedMesh ref={crumbsRef} args={[res.crumbGeometry, res.flatMaterial, CRUMBS]} frustumCulled={false} />
+      <instancedMesh ref={gooRef} args={[res.gooGeometry, res.flatMaterial, GOO]} frustumCulled={false} />
     </>
   )
 }

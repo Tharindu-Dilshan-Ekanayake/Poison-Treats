@@ -183,8 +183,19 @@ class GameRoom extends Room {
     return this.tables.find((t) => t.id === id) || null
   }
 
+  /** A safe bite pays a little straight away. Returns the cash granted. */
+  recordSafeBite(session, now) {
+    const p = session.profile
+    const cash = DATA.safeReward * (profiles.isWeekend(now) ? 2 : 1) * (p.passes.includes('cash2x') ? 2 : 1)
+    p.cash += cash
+    profiles.addQuestEvent(p, 'safe', 1, now)
+    profiles.markDirty(p)
+    session.pushProfile(now)
+    return cash
+  }
+
   /** Awards a win. Returns the cash granted. */
-  recordWin(session, guesses, now) {
+  recordWin(session, now) {
     const p = session.profile
     const has = (pass) => p.passes.includes(pass)
     const cash = DATA.winReward * (profiles.isWeekend(now) ? 2 : 1) * (has('cash2x') ? 2 : 1)
@@ -196,7 +207,6 @@ class GameRoom extends Room {
     p.bestStreak = Math.max(p.bestStreak, p.streak)
     profiles.addQuestEvent(p, 'play', 1, now)
     profiles.addQuestEvent(p, 'win', 1, now)
-    if (guesses <= 3) profiles.addQuestEvent(p, 'quickwin', 1, now)
     if (p.streak >= 3) profiles.addQuestEvent(p, 'streak3', 1, now)
 
     // Win-streak milestones pay a bonus, announced to the whole server.
@@ -220,7 +230,7 @@ class GameRoom extends Room {
     return cash
   }
 
-  /** XP for a duel; a level-up is celebrated for the player and shown to the room. */
+  /** XP for a match; a level-up is celebrated for the player and shown to the room. */
   giveXp(session, amount) {
     const reached = profiles.addXp(session.profile, amount)
     session.player.level = session.profile.level
@@ -233,14 +243,14 @@ class GameRoom extends Room {
   }
 
   /**
-   * A lost duel still pays a little (and XP), so every game moves you forward.
+   * A lost match still pays a little (and XP), so every game moves you forward.
    * Quitting or timing out pays nothing. Returns the cash given.
    */
-  recordLoss(session, now, reason = 'guessed') {
+  recordLoss(session, now, reason = 'poisoned') {
     const p = session.profile
     p.streak = 0
     profiles.addQuestEvent(p, 'play', 1, now)
-    const finished = reason === 'guessed'
+    const finished = reason === 'poisoned'
     const cash = finished ? DATA.lossReward * (profiles.isWeekend(now) ? 2 : 1) : 0
     p.cash += cash
     profiles.markDirty(p)

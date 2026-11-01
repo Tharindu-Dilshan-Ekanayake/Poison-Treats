@@ -229,7 +229,7 @@ function todaysQuests(now) {
   return picked
 }
 
-/** Records a gameplay event ('play', 'win', 'quickwin', 'streak3', 'emote', 'hint'). */
+/** Records a gameplay event ('play', 'win', 'safe', 'streak3', 'emote'). */
 function addQuestEvent(p, event, amount = 1, now = Date.now()) {
   refreshQuests(p, now)
   let changed = false

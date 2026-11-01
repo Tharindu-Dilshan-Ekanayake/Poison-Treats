@@ -105,7 +105,7 @@ class Session {
     this.send('profile', { profile: this.profileView(now) })
   }
 
-  /** Back to the lobby spawn point (after losing a duel). */
+  /** Back to the lobby spawn point (after losing a match). */
   respawn() {
     const [x, y, z] = DATA.world.spawn
     const p = this.player
@@ -142,15 +142,10 @@ class Session {
         return this.onSit(msg, now)
       case 'leave':
         return this.seat?.table.leave(this, now)
-      case 'pick':
-        return this.seat?.table.pick(this, msg.n, now)
-      case 'guess':
-        return this.seat?.table.guess(this, msg.n, now)
-      case 'power': {
-        const err = this.seat ? this.seat.table.power(this, msg.kind, now) : 'Sit at a table first'
-        if (err) this.toast(err)
-        return undefined
-      }
+      case 'poison':
+        return this.seat?.table.poisonCandy(this, msg.n, now)
+      case 'eat':
+        return this.seat?.table.eat(this, msg.n, now)
       case 'emote':
         return this.onEmote(msg, now)
       case 'buy':

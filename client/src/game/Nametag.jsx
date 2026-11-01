@@ -14,7 +14,7 @@ const _world = new Vector3()
 
 /**
  * Name (with win streak) above a player's head, plus their speech bubble: emotes,
- * "Is your number 25? 🤔", "Higher 👆"... Bubbles arrive through liveState, so a new
+ * "Poisoned one 🧪", "SAFE 😋"... Bubbles arrive through liveState, so a new
  * one redraws a canvas but never re-renders React.
  *
  * Place inside the player's group; distance is measured from the tag's world position.
