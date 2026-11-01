@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Guess My Number</title>
+
+    <!-- Game font: one ~49 KB variable woff2 (latin subset) covers all three weights. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Not render-blocking: text paints in the fallback font and swaps when ready. -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap"
+      rel="stylesheet"
+      media="print"
+      onload="this.media = 'all'"
+    />
+
+    <!-- Bloxity SDK, loaded from Bloxity (never bundled). Exposes window.Legion.SDK.
+         `async` so it never delays the game's own start-up; the game waits for it
+         (waitForSDK) before init and before its first matchmaker request. -->
+    <script async src="https://sdk.bloxity.io/v1/legion-sdk.min.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

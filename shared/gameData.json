@@ -1,0 +1,554 @@
+{
+  "bloxity": {
+    "gameSlug": "guess-my-number",
+    "roomName": "game",
+    "leaderboards": [
+      {
+        "id": "wins",
+        "label": "Wins",
+        "order": "desc",
+        "mode": "sum",
+        "format": "number",
+        "reset": "weekly"
+      },
+      {
+        "id": "best_streak",
+        "label": "Best Streak",
+        "order": "desc",
+        "mode": "best",
+        "format": "number",
+        "reset": "none"
+      },
+      {
+        "id": "level",
+        "label": "Level",
+        "order": "desc",
+        "mode": "best",
+        "format": "number",
+        "reset": "none"
+      },
+      {
+        "id": "playtime",
+        "label": "Minutes Played",
+        "order": "desc",
+        "mode": "sum",
+        "format": "number",
+        "reset": "none"
+      }
+    ]
+  },
+  "roomSize": 20,
+  "numberMin": 1,
+  "numberMax": 100,
+  "winReward": 200,
+  "timing": {
+    "countdown": 3,
+    "choose": 20,
+    "turn": 15,
+    "results": 4,
+    "guessReveal": 1.2,
+    "loserRespawn": 2
+  },
+  "world": {
+    "half": 31,
+    "spawn": [0, 0, 23]
+  },
+  "table": {
+    "width": 3.6,
+    "depth": 1.3,
+    "height": 0.82,
+    "seatX": 0.8,
+    "seatZ": 1.0,
+    "sitRange": 4
+  },
+  "tables": [
+    { "id": 1, "x": -17, "z": -4 },
+    { "id": 2, "x": -8.5, "z": -4 },
+    { "id": 3, "x": 0, "z": -4 },
+    { "id": 4, "x": 8.5, "z": -4 },
+    { "id": 5, "x": 17, "z": -4 },
+    { "id": 6, "x": -17, "z": 6 },
+    { "id": 7, "x": -8.5, "z": 6 },
+    { "id": 8, "x": 0, "z": 6 },
+    { "id": 9, "x": 8.5, "z": 6 },
+    { "id": 10, "x": 17, "z": 6 }
+  ],
+  "leaderboards": [
+    {
+      "id": "levels",
+      "title": "TOP LEVELS ⭐",
+      "format": "level",
+      "x": -18,
+      "z": -16
+    },
+    {
+      "id": "streaks",
+      "title": "TOP STREAKS 🔥",
+      "x": -6,
+      "z": -16
+    },
+    {
+      "id": "wins",
+      "title": "TOP WINS 🏆",
+      "x": 6,
+      "z": -16
+    },
+    {
+      "id": "playtime",
+      "title": "MOST PLAYED ⏱️",
+      "format": "duration",
+      "x": 18,
+      "z": -16
+    }
+  ],
+  "emoteShop": {
+    "x": -26.5,
+    "z": 1
+  },
+  "chairs": [
+    {
+      "id": "basic",
+      "name": "Basic",
+      "rarity": "common",
+      "price": 0,
+      "color": "#6b4329"
+    },
+    {
+      "id": "metal",
+      "name": "Metal Chair",
+      "rarity": "common",
+      "price": 100,
+      "color": "#8a96a8",
+      "shop": [24.6, -10]
+    },
+    {
+      "id": "picnic",
+      "name": "Picnic Chair",
+      "rarity": "common",
+      "price": 300,
+      "color": "#e8504a",
+      "shop": [28.4, -10]
+    },
+    {
+      "id": "nature",
+      "name": "Nature Chair",
+      "rarity": "uncommon",
+      "price": 800,
+      "color": "#2fd14f",
+      "shop": [24.6, -5]
+    },
+    {
+      "id": "candy",
+      "name": "Candy Chair",
+      "rarity": "uncommon",
+      "price": 1200,
+      "color": "#ff7fc8",
+      "shop": [28.4, -5]
+    },
+    {
+      "id": "storm",
+      "name": "Storm Chair",
+      "rarity": "rare",
+      "price": 2000,
+      "color": "#7fe3ff",
+      "shop": [24.6, 0]
+    },
+    {
+      "id": "ocean",
+      "name": "Ocean Chair",
+      "rarity": "rare",
+      "price": 3000,
+      "color": "#2f7dff",
+      "shop": [28.4, 0]
+    },
+    {
+      "id": "lava",
+      "name": "Lava Chair",
+      "rarity": "epic",
+      "price": 5000,
+      "color": "#ff5a1f",
+      "shop": [24.6, 5]
+    },
+    {
+      "id": "golden",
+      "name": "Golden Throne",
+      "rarity": "epic",
+      "price": 9000,
+      "color": "#ffc93d",
+      "style": "throne",
+      "shop": [28.4, 5]
+    },
+    {
+      "id": "void",
+      "name": "Void Throne",
+      "rarity": "legendary",
+      "price": 16000,
+      "color": "#9b3dff",
+      "style": "throne",
+      "shop": [24.6, 10]
+    },
+    {
+      "id": "diamond",
+      "name": "Diamond Throne",
+      "rarity": "mythic",
+      "price": 30000,
+      "color": "#8ff4ff",
+      "style": "throne",
+      "shop": [28.4, 10]
+    }
+  ],
+  "emotes": [
+    {
+      "id": "higher",
+      "label": "HIGHER",
+      "icon": "⬆️",
+      "price": 0
+    },
+    {
+      "id": "lower",
+      "label": "LOWER",
+      "icon": "⬇️",
+      "price": 0
+    },
+    {
+      "id": "close",
+      "label": "CLOSE",
+      "icon": "😬",
+      "price": 0
+    },
+    {
+      "id": "lol",
+      "label": "LOL",
+      "icon": "🤣",
+      "price": 200
+    },
+    {
+      "id": "niceone",
+      "label": "NICE ONE",
+      "icon": "👏",
+      "price": 200
+    },
+    {
+      "id": "fairplay",
+      "label": "FAIR PLAY",
+      "icon": "🤝",
+      "price": 200
+    },
+    {
+      "id": "gg",
+      "label": "GG",
+      "icon": "👍",
+      "price": 200
+    },
+    {
+      "id": "havefun",
+      "label": "HAVE FUN",
+      "icon": "😄",
+      "price": 200
+    },
+    {
+      "id": "how",
+      "label": "HOW",
+      "icon": "⁉️",
+      "price": 600
+    },
+    {
+      "id": "wow",
+      "label": "WOW",
+      "icon": "😮",
+      "price": 600
+    },
+    {
+      "id": "bruh",
+      "label": "BRUH",
+      "icon": "😭",
+      "price": 600
+    },
+    {
+      "id": "byebye",
+      "label": "BYE BYE",
+      "icon": "👋",
+      "price": 3500
+    },
+    {
+      "id": "urcooked",
+      "label": "UR COOKED",
+      "icon": "😭",
+      "price": 3500
+    },
+    {
+      "id": "imcooked",
+      "label": "I'M COOKED",
+      "icon": "💔",
+      "price": 3500
+    },
+    {
+      "id": "waytooclose",
+      "label": "WAY TOO CLOSE",
+      "icon": "😬",
+      "price": 3500
+    },
+    {
+      "id": "genius",
+      "label": "GENIUS",
+      "icon": "🧠",
+      "price": 1200
+    },
+    {
+      "id": "easy",
+      "label": "TOO EASY",
+      "icon": "😎",
+      "price": 1200
+    },
+    {
+      "id": "rematch",
+      "label": "REMATCH?",
+      "icon": "🔁",
+      "price": 600
+    }
+  ],
+  "passes": [
+    {
+      "id": "cash2x",
+      "name": "2X CASH",
+      "icon": "💵",
+      "price": 10000,
+      "desc": "Double cash from every win"
+    },
+    {
+      "id": "wins2x",
+      "name": "2X WINS",
+      "icon": "🏆",
+      "price": 10000,
+      "desc": "Every win counts twice"
+    },
+    {
+      "id": "streak2x",
+      "name": "2X STREAK",
+      "icon": "🔥",
+      "price": 10000,
+      "desc": "Streak grows by 2 per win"
+    }
+  ],
+  "starterPack": {
+    "price": 1500,
+    "chair": "lava",
+    "emotes": [
+      "gg",
+      "lol"
+    ]
+  },
+  "powers": {
+    "hint": 150,
+    "reveal": 600
+  },
+  "quests": [
+    {
+      "id": "play3",
+      "label": "Play 3 Duels",
+      "event": "play",
+      "goal": 3,
+      "reward": 300
+    },
+    {
+      "id": "play6",
+      "label": "Play 6 Duels",
+      "event": "play",
+      "goal": 6,
+      "reward": 700
+    },
+    {
+      "id": "win2",
+      "label": "Win 2 Duels",
+      "event": "win",
+      "goal": 2,
+      "reward": 500
+    },
+    {
+      "id": "win5",
+      "label": "Win 5 Duels",
+      "event": "win",
+      "goal": 5,
+      "reward": 1200
+    },
+    {
+      "id": "quickwin",
+      "label": "Win Within 3 Guesses",
+      "event": "quickwin",
+      "goal": 1,
+      "reward": 700
+    },
+    {
+      "id": "streak3",
+      "label": "Reach a 3 Win Streak",
+      "event": "streak3",
+      "goal": 1,
+      "reward": 900
+    },
+    {
+      "id": "emote5",
+      "label": "Use 5 Emotes",
+      "event": "emote",
+      "goal": 5,
+      "reward": 250
+    },
+    {
+      "id": "hint1",
+      "label": "Use a Hint",
+      "event": "hint",
+      "goal": 1,
+      "reward": 200
+    }
+  ],
+  "gift": {
+    "intervalSec": 600,
+    "min": 50,
+    "max": 300
+  },
+  "daily": {
+    "base": 100,
+    "maxDays": 7
+  },
+  "halos": [
+    {
+      "id": "halo_gold",
+      "name": "Golden Halo",
+      "rarity": "uncommon",
+      "price": 1500,
+      "color": "#ffd23d"
+    },
+    {
+      "id": "halo_frost",
+      "name": "Frost Halo",
+      "rarity": "rare",
+      "price": 3000,
+      "color": "#7fe3ff"
+    },
+    {
+      "id": "halo_toxic",
+      "name": "Toxic Halo",
+      "rarity": "rare",
+      "price": 3500,
+      "color": "#7dff3a"
+    },
+    {
+      "id": "halo_love",
+      "name": "Love Halo",
+      "rarity": "epic",
+      "price": 6000,
+      "color": "#ff5aa5"
+    },
+    {
+      "id": "halo_fire",
+      "name": "Fire Halo",
+      "rarity": "epic",
+      "price": 7500,
+      "color": "#ff6a1f"
+    },
+    {
+      "id": "halo_void",
+      "name": "Void Halo",
+      "rarity": "legendary",
+      "price": 12000,
+      "color": "#b44dff"
+    },
+    {
+      "id": "halo_angel",
+      "name": "Angel Halo",
+      "rarity": "legendary",
+      "price": 15000,
+      "color": "#fff7d6"
+    },
+    {
+      "id": "halo_rainbow",
+      "name": "Rainbow Halo",
+      "rarity": "mythic",
+      "price": 25000,
+      "color": "#ffffff",
+      "rainbow": true
+    }
+  ],
+  "questsPerDay": 3,
+  "streakBonuses": {
+    "3": 150,
+    "5": 400,
+    "10": 1000
+  },
+  "lossReward": 25,
+  "xp": {
+    "win": 40,
+    "loss": 15,
+    "base": 100,
+    "step": 25,
+    "rewardPerLevel": 100,
+    "rewardCap": 2500
+  },
+  "titles": [
+    {
+      "id": "t_rookie",
+      "name": "Rookie Guesser",
+      "color": "#c8d0dc",
+      "level": 5
+    },
+    {
+      "id": "t_ninja",
+      "name": "Number Ninja",
+      "color": "#5cff5c",
+      "level": 10
+    },
+    {
+      "id": "t_reader",
+      "name": "Mind Reader",
+      "color": "#4fd8ff",
+      "level": 20
+    },
+    {
+      "id": "t_master",
+      "name": "Guess Master",
+      "color": "#ffb21e",
+      "level": 35
+    },
+    {
+      "id": "t_legend",
+      "name": "Living Legend",
+      "color": "#ff4fd8",
+      "level": 50
+    },
+    {
+      "id": "t_lucky",
+      "name": "Lucky Guess",
+      "color": "#7dff3a",
+      "price": 500,
+      "rarity": "common"
+    },
+    {
+      "id": "t_brain",
+      "name": "Big Brain",
+      "color": "#ff7fc8",
+      "price": 2000,
+      "rarity": "uncommon"
+    },
+    {
+      "id": "t_pro",
+      "name": "Higher Lower Pro",
+      "color": "#2f9bff",
+      "price": 4000,
+      "rarity": "rare"
+    },
+    {
+      "id": "t_psychic",
+      "name": "Psychic",
+      "color": "#b44dff",
+      "price": 10000,
+      "rarity": "epic"
+    },
+    {
+      "id": "t_oracle",
+      "name": "The Oracle",
+      "color": "#ffd23d",
+      "price": 25000,
+      "rarity": "legendary",
+      "rainbow": true
+    }
+  ]
+}

@@ -1,0 +1,548 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-game: 'Fredoka', 'Segoe UI', system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+  font-family: var(--font-game);
+  font-weight: 600;
+  -webkit-font-smoothing: antialiased;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* The R3F canvas fills its container; the HUD is absolutely positioned over it. */
+canvas {
+  display: block;
+  touch-action: none;
+}
+
+/* Chunky outlined game text, Roblox style. */
+.stroke-text {
+  -webkit-text-stroke: 0.09em #111;
+  paint-order: stroke fill;
+  text-shadow: 0 0.06em 0 rgb(0 0 0 / 0.35);
+}
+.stroke-thin {
+  -webkit-text-stroke: 0.06em #111;
+  paint-order: stroke fill;
+}
+
+.rainbow-text {
+  background: linear-gradient(90deg, #ff3b3b, #ffb21e, #ffee32, #3bff6f, #33c8ff, #b14dff, #ff4fb8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000) drop-shadow(0 2px 0 rgb(0 0 0 / 0.5));
+}
+
+/* Lego-style stud pattern for tiles and buttons. */
+.studs {
+  background-image: radial-gradient(circle, rgb(255 255 255 / 0.28) 0 22%, rgb(0 0 0 / 0.1) 24% 30%, transparent 32%);
+  background-size: 22px 22px;
+}
+
+.press {
+  transition: transform 80ms ease, filter 80ms ease;
+}
+.press:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+.press:active:not(:disabled) {
+  transform: translateY(2px) scale(0.97);
+}
+
+@keyframes pop-in {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.pop-in {
+  animation: pop-in 180ms cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(-6deg);
+  }
+  50% {
+    transform: rotate(6deg);
+  }
+}
+.wiggle {
+  animation: wiggle 1.2s ease-in-out infinite;
+}
+
+/* Thin, dark scrollbars inside game panels. */
+.game-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.5) transparent;
+}
+
+/* ---- HUD placement around Bloxity's own UI ------------------------------------
+ * Bloxity's toolbar sits in the top-left (on phones it spans almost the whole top
+ * edge) with the chat feed below it. The SDK sets --boxity-ui-top on <html>;
+ * --reserved-left-bottom is the bottom of whatever Bloxity draws on the left (see
+ * platform.js). The game keeps the top-left corner empty. */
+.hud-top {
+  top: 0.75rem;
+}
+@media (max-width: 900px), (max-height: 520px) {
+  .hud-top {
+    top: max(0.5rem, calc(var(--boxity-ui-top, 0px) + 0.4rem));
+  }
+}
+.hud-left-column {
+  top: max(20%, calc(var(--reserved-left-bottom, 0px) + 0.75rem));
+}
+@media (orientation: portrait) {
+  .hud-left-column {
+    top: max(27%, calc(var(--reserved-left-bottom, 0px) + 0.75rem));
+  }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .hud-left-column {
+    top: max(16%, calc(var(--reserved-left-bottom, 0px) + 0.5rem));
+  }
+}
+/* ---- Top-right bar: ❓ / ⚙️ / name card ----------------------------------------
+ * One row matching Bloxity's toolbar: as tall as its pill, dark glass with a light
+ * rim, beside it when there is room, otherwise under it (or under the chat feed).
+ * platform.js places it from the SDK's reserved areas (--bar-*); without the SDK it
+ * is 44 px tall, 8 px from the top. Sized in px like the toolbar, not with the HUD's
+ * rem scale. On portrait the cash/wins and Quests/Starter stack under it. */
+.hud-corner {
+  /* The toolbar's height on phones; on big screens it grows with the rest of the HUD. */
+  --bar-h-used: max(var(--bar-h, 44px), 2.75rem);
+  top: max(var(--bar-top, 8px), env(safe-area-inset-top, 0px));
+  max-width: var(--bar-maxw, calc(100vw - 1.5rem));
+}
+.bar-row,
+.bar-btns {
+  gap: calc(var(--bar-h-used) * 0.16);
+}
+/* Portrait phones: a column down the right edge: name card, then ❓ / ⚙️, then (as
+   the markup goes on) cash/wins and Quests/Starter. */
+@media (orientation: portrait) {
+  .bar-row {
+    flex-direction: column-reverse;
+    align-items: flex-end;
+  }
+}
+.bar-glass {
+  background: linear-gradient(180deg, rgb(44 52 72 / 0.92), rgb(20 24 36 / 0.92));
+  border: 2px solid rgb(255 255 255 / 0.85);
+  box-shadow:
+    0 2px 6px rgb(0 0 0 / 0.35),
+    inset 0 1px 0 rgb(255 255 255 / 0.2);
+}
+.bar-btn {
+  width: var(--bar-h-used);
+  height: var(--bar-h-used);
+  font-size: calc(var(--bar-h-used) * 0.5);
+}
+.bar-card {
+  height: var(--bar-h-used);
+  max-width: 15rem;
+  gap: calc(var(--bar-h-used) * 0.18);
+  padding: 0 calc(var(--bar-h-used) * 0.4) 0 3px;
+}
+.bar-avatar {
+  width: calc(var(--bar-h-used) - 10px);
+  height: calc(var(--bar-h-used) - 10px);
+  font-size: calc(var(--bar-h-used) * 0.42);
+}
+.bar-name {
+  font-size: calc(var(--bar-h-used) * 0.36);
+}
+.bar-xp {
+  height: calc(var(--bar-h-used) * 0.13);
+}
+.bar-lv {
+  font-size: calc(var(--bar-h-used) * 0.22);
+}
+
+/* ---- Shared game UI pieces ----------------------------------------------------
+ * In a layer so Tailwind utilities on the same element (rounded-*, absolute, ...)
+ * still win. */
+@layer components {
+  .ui-panel {
+    background: linear-gradient(180deg, rgb(32 41 58 / 0.92), rgb(18 24 36 / 0.92));
+    border: 3px solid #0b0f17;
+    border-radius: 1rem;
+    box-shadow:
+      0 0.3rem 0 rgb(0 0 0 / 0.35),
+      inset 0 1px 0 rgb(255 255 255 / 0.15);
+  }
+
+  /* Chunky glossy button: dark rim, a glassy highlight over the top half, a darker
+     lip at the bottom, and a light sweep on hover. */
+  .btn-3d {
+    position: relative;
+    isolation: isolate;
+    border: 3px solid #111;
+    border-radius: 0.85rem;
+    box-shadow:
+      inset 0 -0.32rem 0 rgb(0 0 0 / 0.24),
+      inset 0 0 0 2px rgb(255 255 255 / 0.18),
+      0 0.25rem 0 rgb(0 0 0 / 0.4);
+    transition:
+      transform 90ms ease,
+      filter 90ms ease,
+      box-shadow 90ms ease;
+  }
+  .btn-3d::before {
+    content: '';
+    position: absolute;
+    inset: 3px 4px 52% 4px;
+    border-radius: calc(0.85rem - 4px) calc(0.85rem - 4px) 40% 40% / calc(0.85rem - 4px) calc(0.85rem - 4px) 30% 30%;
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.55), rgb(255 255 255 / 0.08));
+    pointer-events: none;
+    z-index: -1;
+  }
+  .btn-3d::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.45) 50%, transparent 65%);
+    background-size: 250% 100%;
+    background-position: 120% 0;
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      background-position 450ms ease,
+      opacity 200ms ease;
+  }
+  .btn-3d:hover:not(:disabled)::after {
+    opacity: 1;
+    background-position: -20% 0;
+  }
+  .btn-3d:hover:not(:disabled) {
+    filter: brightness(1.07) saturate(1.05);
+    transform: translateY(-1px);
+  }
+  .btn-3d:active:not(:disabled) {
+    transform: translateY(2px);
+    box-shadow:
+      inset 0 -0.12rem 0 rgb(0 0 0 / 0.24),
+      inset 0 0 0 2px rgb(255 255 255 / 0.18),
+      0 0.06rem 0 rgb(0 0 0 / 0.4);
+  }
+  .btn-3d:disabled {
+    filter: grayscale(0.35);
+  }
+
+  /* The big square menu tiles (Shop, Items, Rewards). */
+  .btn-tile {
+    border-radius: 1.25rem;
+  }
+  .btn-tile::before {
+    border-radius: 1rem 1rem 45% 45% / 1rem 1rem 25% 25%;
+  }
+
+  /* Round touch controls: frosted glass with a coloured rim. */
+  .touch-pad {
+    background: radial-gradient(circle at 50% 40%, rgb(255 255 255 / 0.22), rgb(15 25 45 / 0.35) 70%);
+    border: 3px solid rgb(255 255 255 / 0.55);
+    box-shadow:
+      0 0.3rem 0.8rem rgb(0 0 0 / 0.25),
+      inset 0 0 1.2rem rgb(255 255 255 / 0.15);
+  }
+}
+
+.glow {
+  filter: drop-shadow(0 0 0.5rem rgb(255 230 80 / 0.7));
+}
+
+@layer components {
+  /* Round buttons (plus, jump): keep the gloss inside the circle. */
+  .btn-3d.rounded-full::before {
+    inset: 3px 14% 52% 14%;
+    border-radius: 9999px 9999px 45% 45%;
+  }
+}
+
+/* The rainbow halo's shop swatch. */
+@keyframes halo-hue {
+  to {
+    filter: hue-rotate(360deg);
+  }
+}
+.halo-rainbow {
+  border-color: #ff3b3b;
+  box-shadow: 0 0 0.6rem #ff3b3b;
+  /* Hue-rotating only the ring: it sits alone inside its dark tile. */
+  animation: halo-hue 2.5s linear infinite;
+  isolation: isolate;
+}
+
+/* ---- Higher / Lower reveal ------------------------------------------------------ */
+@keyframes reveal-pulse {
+  0%,
+  100% {
+    transform: scale(1) rotate(-3deg);
+  }
+  50% {
+    transform: scale(1.12) rotate(3deg);
+  }
+}
+.reveal-pulse {
+  animation: reveal-pulse 0.45s ease-in-out infinite;
+}
+@keyframes arrow-up {
+  0%,
+  100% {
+    transform: translateY(0.3rem);
+  }
+  50% {
+    transform: translateY(-0.5rem);
+  }
+}
+@keyframes arrow-down {
+  0%,
+  100% {
+    transform: translateY(-0.3rem);
+  }
+  50% {
+    transform: translateY(0.5rem);
+  }
+}
+.arrow-up {
+  animation: arrow-up 0.5s ease-in-out infinite;
+}
+.arrow-down {
+  animation: arrow-down 0.5s ease-in-out infinite;
+}
+@keyframes slam {
+  0% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(0.92);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.slam {
+  animation: slam 0.32s cubic-bezier(0.2, 1.3, 0.4, 1);
+}
+
+
+/* Settings sliders: a chunky track filled up to the value, and a round knob. */
+.game-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 0.8rem;
+  border-radius: 9999px;
+  border: 2px solid #0b0f17;
+  background: linear-gradient(90deg, #5dff5d var(--fill), #3b3e45 var(--fill));
+  cursor: pointer;
+}
+.game-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  border: 3px solid #111;
+  background: linear-gradient(180deg, #ffffff, #d6dde8);
+  box-shadow: 0 0.15rem 0 rgb(0 0 0 / 0.35);
+}
+.game-slider::-moz-range-thumb {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  border: 3px solid #111;
+  background: linear-gradient(180deg, #ffffff, #d6dde8);
+}
+
+/* ---- Menu tiles (Shop, Items, Rewards / Quests, Gift, Starter) ------------------ */
+.hud-pill {
+  width: 9.5rem;
+  height: 2.5rem;
+}
+.hud-tile {
+  width: 5.25rem;
+  height: 5.25rem;
+}
+/* Icon and label scale with the tile, so a small tile never clips its label. */
+.hud-tile-icon {
+  font-size: 2.5rem;
+}
+.hud-tile-label {
+  font-size: 0.8rem;
+}
+.hud-right-column {
+  top: 30%;
+}
+@media (orientation: portrait) {
+  .hud-tile {
+    width: 4.5rem;
+    height: 4.5rem;
+  }
+  .hud-tile-icon {
+    font-size: 2.1rem;
+  }
+  .hud-tile-label {
+    font-size: 0.72rem;
+  }
+}
+/* Cash/wins: top centre on big screens, under the top-right bar on portrait (with
+   Quests/Starter under them, in the same column so nothing overlaps wherever the
+   bar lands), at the bottom centre on landscape phones. */
+.hud-currency-bottom,
+.hud-currency-corner,
+.hud-right-corner {
+  display: none;
+}
+@media (orientation: portrait) {
+  .hud-currency-top,
+  .hud-right-column {
+    display: none;
+  }
+  .hud-currency-corner,
+  .hud-right-corner {
+    display: flex;
+  }
+}
+/* Phones on their side. Only the bottom ~45% of the left edge is free (Bloxity's
+   toolbar and chat use the top), so the left column holds just the three tiles,
+   stacked and sized to fit that height, and cash/wins sit side by side at the
+   bottom centre, between the joystick and the jump button. The right column stays
+   clear of the jump button; the Starter Pack waits in the shop. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .hud-tile {
+    --tile: min(4.6rem, calc((100dvh - max(16dvh, var(--reserved-left-bottom, 0px) + 0.5rem) - 1.4rem) / 3.25));
+    width: var(--tile);
+    height: var(--tile);
+  }
+  .hud-tile-icon {
+    font-size: calc(var(--tile) * 0.43);
+  }
+  .hud-tile-label {
+    font-size: calc(var(--tile) * 0.165);
+  }
+  .hud-tile-group {
+    gap: 0.4rem;
+  }
+  .hud-currency-top {
+    display: none;
+  }
+  .hud-currency-bottom {
+    display: flex;
+  }
+  .hud-pill {
+    width: 9rem;
+    height: 2.3rem;
+  }
+  .hud-right-column {
+    top: 22%;
+  }
+  .hud-tile-optional {
+    display: none;
+  }
+}
+@keyframes tile-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0.4rem 0.1rem rgb(255 230 80 / 0.6),
+      inset 0 -0.32rem 0 rgb(0 0 0 / 0.24);
+  }
+  50% {
+    box-shadow:
+      0 0 1.2rem 0.45rem rgb(255 230 80 / 0.95),
+      inset 0 -0.32rem 0 rgb(0 0 0 / 0.24);
+  }
+}
+.tile-glow {
+  animation: tile-glow 1s ease-in-out infinite;
+}
+
+/* ---- Duel VS bar ----------------------------------------------------------------- */
+/* Whose turn it is: a pulsing gold ring round their card. */
+.turn-ring {
+  box-shadow:
+    0 0 0 3px #ffd23d,
+    0 0 14px 3px rgba(255, 210, 61, 0.7);
+  animation: turn-pulse 1s ease-in-out infinite alternate;
+}
+@keyframes turn-pulse {
+  to {
+    box-shadow:
+      0 0 0 3px #ffd23d,
+      0 0 4px 1px rgba(255, 210, 61, 0.4);
+  }
+}
+/* Speech bubble tail pointing up at the card. */
+.speech {
+  position: relative;
+}
+.speech::before {
+  content: '';
+  position: absolute;
+  top: -0.45rem;
+  border: 0.4rem solid transparent;
+  border-top: 0;
+  border-bottom: 0.45rem solid #fff;
+}
+.speech-left::before {
+  left: 0.8rem;
+}
+.speech-right::before {
+  right: 0.8rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .turn-ring {
+    animation: none;
+  }
+}
+/* The guess being answered: in the sky under the VS bar; on short landscape phones
+   there is no room there, so it sits over the table's front edge instead. */
+.reveal-pos {
+  top: 19%;
+}
+@media (orientation: portrait) {
+  .reveal-pos {
+    top: 17%;
+  }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .reveal-pos {
+    top: auto;
+    bottom: 0.75rem;
+  }
+}
+
+/* Joystick: bottom-left, clear of the left HUD column (beside it on landscape). */
+.touch-pad-pos {
+  left: 7.25rem;
+}
+@media (orientation: portrait) {
+  .touch-pad-pos {
+    left: 1.5rem;
+  }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .touch-pad-pos {
+    left: 6.75rem;
+  }
+}
