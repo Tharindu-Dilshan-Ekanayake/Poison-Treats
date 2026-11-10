@@ -34,14 +34,17 @@ const LOOK_SMOOTHING = 8
 const TABLE_SMOOTHING = 3
 
 /**
- * Seated view: over your own shoulder, high enough to see every treat on the table
- * and your opponent sitting across from you.
+ * Seated view: high above and behind your own chair, looking down across the table,
+ * so every treat is in view and your opponent sits at the top of the screen. High
+ * enough that your own head never blocks the treats nearest you: the nearest row is
+ * ~0.8 from the seat, so the line of sight from here crosses the seat at ~2.0, above
+ * a seated head (~1.5).
  */
-const TABLE_CAM_BACK = 1.35
-const TABLE_CAM_HEIGHT = 3.0
-const TABLE_LOOK_HEIGHT = 0.85
-/** How far past the table's centre (towards the opponent) the camera aims. */
-const TABLE_LOOK_AHEAD = 1.55
+const TABLE_CAM_BACK = 1.5
+const TABLE_CAM_HEIGHT = 4.3
+const TABLE_LOOK_HEIGHT = 0.8
+/** How far past the seat (towards the opponent) the camera aims: the table's middle. */
+const TABLE_LOOK_AHEAD = 1.3
 /** Pulled back and higher while the winner dances up on the table. */
 const WIN_CAM_BACK = 2.6
 const WIN_CAM_HEIGHT = 3.3
