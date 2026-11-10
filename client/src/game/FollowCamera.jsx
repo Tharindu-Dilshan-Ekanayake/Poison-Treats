@@ -39,8 +39,8 @@ const TABLE_SMOOTHING = 3
  * on its long sides, so you sit on the left of the screen, your opponent on the right,
  * and every treat is in the middle, with nobody's head in front of anything.
  */
-const TABLE_CAM_DIST = 3.6
-const TABLE_CAM_HEIGHT = 2.7
+const TABLE_CAM_DIST = 3.1
+const TABLE_CAM_HEIGHT = 3.0
 const TABLE_LOOK_HEIGHT = 0.85
 /**
  * Half the width of table the view must always hold (the two seats are 1.3 either
