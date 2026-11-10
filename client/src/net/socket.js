@@ -47,6 +47,12 @@ const LOSS_HIDE_MS = 2000
 const HEAR_RANGE = 12
 /** A cold start can take ~45 s; stop retrying after this long without a room. */
 const GIVE_UP_MS = 60000
+/**
+ * Waits between join attempts while the server is starting. Short and capped: the
+ * moment a waking server answers we should be knocking, not asleep in a long backoff.
+ */
+const RETRY_MIN_MS = 400
+const RETRY_MAX_MS = 1500
 /** Players already in the room when we join get playerInRoom, later ones playerJoined. */
 const INITIAL_SYNC_MS = 1500
 /** The server's close code when this account joined from another window. */
@@ -64,8 +70,12 @@ let relayRoomId = null
 let hello = null
 /** Bumped on every connect/disconnect so a slow, stale join can't attach itself. */
 let joinToken = 0
-let retryDelay = 500
+let retryDelay = RETRY_MIN_MS
 let retryTimer = null
+/** A retry is scheduled and nothing is being attempted right now. */
+let waitingToRetry = false
+/** Has this page ever been in a room? Tells "Connecting" (first time) from "Reconnecting". */
+let hasJoined = false
 let firstAttemptAt = 0
 let posTimer = null
 /** server clock - local clock, from the welcome message. */
@@ -136,7 +146,7 @@ export function connect(joinOptions) {
   const previous = detachRoom()
   rejoinTarget = previous ? { roomId: previous.roomId, relayRoomId: previousRelay } : null
   firstAttemptAt = 0
-  retryDelay = 500
+  retryDelay = RETRY_MIN_MS
   join().finally(() => previous?.leave(true).catch(() => {}))
 }
 
@@ -199,8 +209,10 @@ async function joinDeepLink(roomId, target) {
 async function join() {
   const token = ++joinToken
   clearTimeout(retryTimer)
+  waitingToRetry = false
   firstAttemptAt ||= Date.now()
-  useGame.setState({ status: 'connecting' })
+  // 'connecting' is the first connection of this page; afterwards it is a reconnect.
+  useGame.setState({ status: hasJoined ? 'offline' : 'connecting' })
   try {
     // Every connection resolves a fresh endpoint and builds a new Client from it:
     // each endpoint is pinned to one pod.
@@ -227,8 +239,9 @@ async function join() {
       return
     }
     room = joined
+    hasJoined = true
     relayRoomId = via
-    retryDelay = 500
+    retryDelay = RETRY_MIN_MS
     firstAttemptAt = 0
     attach(joined)
   } catch (err) {
@@ -238,7 +251,7 @@ async function join() {
       useGame.setState({ status: 'failed' })
       return
     }
-    useGame.setState({ status: 'offline' })
+    useGame.setState({ status: hasJoined ? 'offline' : 'connecting' })
     scheduleRejoin()
   }
 }
@@ -247,16 +260,29 @@ async function join() {
 export function retryConnection() {
   if (!hello) return
   firstAttemptAt = 0
-  retryDelay = 500
+  retryDelay = RETRY_MIN_MS
   join()
 }
 
 function scheduleRejoin() {
   if (!hello) return
   clearTimeout(retryTimer)
+  waitingToRetry = true
   retryTimer = setTimeout(join, retryDelay)
-  retryDelay = Math.min(retryDelay * 2, 8000)
+  retryDelay = Math.min(Math.round(retryDelay * 1.5), RETRY_MAX_MS)
 }
+
+/**
+ * The tab came back to the front or the network returned: if we are only waiting for
+ * the next retry, try right now instead of finishing the wait.
+ */
+function retryNow() {
+  if (hello && !room && waitingToRetry) join()
+}
+window.addEventListener('online', retryNow)
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) retryNow()
+})
 
 function resetWorld() {
   remotes.clear()
@@ -314,6 +340,13 @@ function attach(r) {
 
   // A dropped connection: Colyseus reconnects on its own and the server holds our
   // place (and table seat) meanwhile.
+  // The SDK's own reconnect (same server, same seat) defaults to waits of up to 5 s and
+  // 15 tries, about a minute before it gives up. Tighter: a brief drop is recovered
+  // within a second or two, and a server that is really gone is given up on after
+  // ~12 s, so we resolve a fresh endpoint and rejoin instead of waiting out the rest.
+  r.reconnection.maxDelay = 1500
+  r.reconnection.maxRetries = 10
+
   r.onDrop(() => {
     clearInterval(posTimer)
     useGame.setState({ status: 'offline' })
