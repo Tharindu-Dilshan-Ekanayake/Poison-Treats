@@ -10,8 +10,12 @@ import { create } from 'zustand'
 let toastId = 0
 
 export const useGame = create((set, get) => ({
-  /** 'connecting' | 'online' | 'offline' */
+  /** 'connecting' | 'online' | 'offline' | 'failed' | 'afk' (removed for being away) */
   status: 'connecting',
+  /** The matchmaker is starting a game server (nobody was playing): the first join takes longer. */
+  serverWaking: false,
+  /** When the "Still there?" countdown ends (server removes an idle player then); 0 = none. */
+  afkWarnUntil: 0,
   selfId: null,
   roomId: null,
   capacity: 20,
@@ -34,7 +38,8 @@ export const useGame = create((set, get) => ({
   bite: null,
   /** Level-up celebration: { level, reward, title, until }. */
   levelUp: null,
-  emotesOpen: true,
+  /** The quick-phrase list in a match: folded away until the player opens it. */
+  emotesOpen: false,
 
   openModal: (modal, shopTab) => set({ modal, ...(shopTab ? { shopTab } : {}) }),
   closeModal: () => set({ modal: null }),

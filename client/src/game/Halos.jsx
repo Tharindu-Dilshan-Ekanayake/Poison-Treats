@@ -11,7 +11,7 @@ import {
 } from 'three'
 
 import { useGame } from '../net/gameStore'
-import { avatarAnchors, hiddenUntil, localPlayer, SELF_ANCHOR } from '../net/liveState'
+import { avatarAnchors, avatarTops, hiddenUntil, localPlayer, SELF_ANCHOR } from '../net/liveState'
 import { haloById, PLAYER_HEIGHT } from './layout'
 import { useDisposable } from './useDisposable'
 
@@ -22,7 +22,8 @@ const GEMS = 3
 /** Legendary and mythic halos get a second, larger ring. */
 const BIG = new Set(['legendary', 'mythic'])
 /** Height of the halo above the avatar's feet. */
-const HALO_Y = PLAYER_HEIGHT + 0.28
+/** Gap between the top of the head (or hat) and the halo. */
+const HALO_GAP = 0.28
 
 const _obj = new Object3D()
 const _pos = new Vector3()
@@ -113,7 +114,7 @@ export function Halos() {
       if (id === SELF_ANCHOR ? now < localPlayer.hiddenUntil : (hiddenUntil.get(id) || 0) > now) continue
 
       anchor.getWorldPosition(_pos)
-      _obj.position.set(_pos.x, _pos.y + HALO_Y + Math.sin(t * 2 + i) * 0.04, _pos.z)
+      _obj.position.set(_pos.x, _pos.y + (avatarTops.get(id) ?? PLAYER_HEIGHT) + HALO_GAP + Math.sin(t * 2 + i) * 0.04, _pos.z)
       _obj.rotation.set(0.12 * Math.sin(t * 0.9 + i), t * 1.2, 0.12 * Math.cos(t * 0.7 + i))
       _obj.scale.setScalar(1)
       _obj.updateMatrix()

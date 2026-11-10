@@ -34,6 +34,22 @@ function LeaveButton({ label = 'Leave', forfeit = false }) {
   )
 }
 
+/** "Play Bot": a practice opponent for a player waiting alone. It only comes when asked. */
+function BotButton() {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        sfx.click()
+        send({ t: 'bot' })
+      }}
+      className="btn-3d press pointer-events-auto bg-gradient-to-b from-[#b07dff] to-[#6a3ee8] px-4 py-1.5 text-base font-bold text-white"
+    >
+      <span className="stroke-thin">🤖 Play Bot</span>
+    </button>
+  )
+}
+
 /**
  * What's happening right now, in one big line under the VS bar: poison a treat,
  * your turn to eat, or who is choosing.
@@ -230,6 +246,8 @@ function EmotePanel() {
                   onClick={() => {
                     sfx.pop()
                     send({ t: 'emote', id })
+                    // Fold the list away again: one tap, one phrase.
+                    useGame.setState({ emotesOpen: false })
                   }}
                   className="btn-3d press flex items-center justify-between bg-gradient-to-b from-[#fff35c] to-[#f2c200] px-2 py-1"
                 >
@@ -314,7 +332,10 @@ export function MatchUI() {
       {match?.phase === 'waiting' && (
         <div className="pointer-events-none absolute bottom-[16%] left-1/2 z-30 flex -translate-x-1/2 flex-col items-center gap-2">
           <span className="stroke-text whitespace-nowrap text-2xl font-bold text-white">Waiting for an opponent… (1/2)</span>
-          <LeaveButton />
+          <div className="flex items-center gap-3">
+            <BotButton />
+            <LeaveButton />
+          </div>
         </div>
       )}
 

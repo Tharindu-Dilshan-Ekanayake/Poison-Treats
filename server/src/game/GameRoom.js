@@ -2,6 +2,7 @@ const { Room, ServerError } = require('@colyseus/core')
 
 const { resolveIdentity } = require('../bloxity/identity')
 const { flushScores, submitScore } = require('../bloxity/leaderboards')
+const Bot = require('./Bot')
 const DATA = require('./data')
 const profiles = require('./profiles')
 const { GameState, PlayerState, TableState } = require('./schema')
@@ -18,6 +19,9 @@ const LEADERBOARD_PUSH_MS = 15000
 const PLAYTIME_TICK_MS = 30000
 /** Close code for a session replaced by the same account joining from elsewhere. */
 const REPLACED = 4100
+/** Close code for a player removed for being away (the client shows "Play again"). */
+const AFK_KICK = 4200
+const AFK_TICK_MS = 5000
 
 /** profile id -> live session, across every room in this process. */
 const liveByProfile = new Map()
@@ -59,6 +63,11 @@ class GameRoom extends Room {
     this.clock.setInterval(() => this.pushLeaderboard(), LEADERBOARD_PUSH_MS)
     this.lastPlaytimeTick = Date.now()
     this.clock.setInterval(() => this.tickPlaytime(), PLAYTIME_TICK_MS)
+    this.clock.setInterval(() => this.tickAfk(), AFK_TICK_MS)
+
+    /** bot id -> Bot: practice opponents, kept apart from real players' sessions. */
+    this.bots = new Map()
+    this.botSerial = 0
   }
 
   /**
@@ -109,6 +118,7 @@ class GameRoom extends Room {
     if (!session) return
     session.client = client
     session.reconnection = null
+    session.touch(Date.now())
     // Private messages sent while they were away are lost; resend what matters.
     this.sendWelcome(session, Date.now())
   }
@@ -155,6 +165,73 @@ class GameRoom extends Room {
     this.broadcast('lb', board)
   }
 
+  /**
+   * Frees the slots of players who have walked away: a warning after `warnSeconds`
+   * without doing anything, removal after `kickSeconds`. A match in progress is never
+   * interrupted (the table has its own rule for players who stop picking).
+   */
+  tickAfk() {
+    const now = Date.now()
+    const { warnSeconds, kickSeconds } = DATA.afk
+    for (const session of this.sessions.values()) {
+      if (session.kicked || session.reconnection) continue
+      const phase = session.seat?.table.phase
+      if (phase && phase !== 'waiting') {
+        session.touch(now)
+        continue
+      }
+      const idle = (now - session.lastActiveAt) / 1000
+      if (idle >= kickSeconds) {
+        session.kicked = true
+        session.client.leave(AFK_KICK) // onLeave stands them up and frees the slot
+      } else if (idle >= warnSeconds && !session.afkWarned) {
+        session.afkWarned = true
+        session.send('afkWarn', { inMs: Math.round((kickSeconds - idle) * 1000) })
+      }
+    }
+  }
+
+  /**
+   * The "Play Bot" button: gives a player who is waiting alone at a table a practice
+   * opponent. Nothing happens unless they ask for it.
+   */
+  requestBot(session, now) {
+    const table = session.seat?.table
+    if (!table) {
+      session.toast('Sit at a table first')
+      return
+    }
+    // Already started, or a real player has sat down too: nothing to do.
+    if (table.phase !== 'waiting' || table.seats.some((s) => s && s !== session)) return
+    if (!DATA.bots.enabled || this.bots.size >= DATA.bots.maxBots) {
+      session.toast('All practice bots are busy, try again in a moment')
+      return
+    }
+    this.spawnBot(table, session, now)
+  }
+
+  spawnBot(table, human, now) {
+    const taken = new Set([...this.bots.values()].map((b) => b.name))
+    const free = DATA.bots.names.filter((n) => !taken.has(`${n} 🤖`))
+    const pool = free.length ? free : DATA.bots.names
+    const bot = new Bot(this, `bot_${(this.botSerial += 1)}`, `${pool[Math.floor(Math.random() * pool.length)]} 🤖`)
+    this.bots.set(bot.id, bot)
+    this.state.players.set(bot.id, bot.player)
+    if (table.sit(bot, now)) {
+      this.removeBot(bot)
+      return
+    }
+    bot.placeAt(table)
+    const pct = Math.round(DATA.bots.rewardScale * 100)
+    human.toast(`${bot.name} joined for a practice match: ${pct}% rewards, no leaderboard points`)
+  }
+
+  removeBot(bot) {
+    if (!this.bots.delete(bot.id)) return
+    bot.dispose()
+    this.state.players.delete(bot.id)
+  }
+
   /** Counts time played for everyone here; whole minutes go to the Bloxity board. */
   tickPlaytime() {
     const now = Date.now()
@@ -170,11 +247,6 @@ class GameRoom extends Room {
     void flushScores()
   }
 
-  questEvent(session, event, now) {
-    profiles.addQuestEvent(session.profile, event, 1, now)
-    session.pushProfile(now)
-  }
-
   bubble(session, text) {
     if (session) this.broadcast('bubble', { id: session.id, text })
   }
@@ -183,49 +255,64 @@ class GameRoom extends Room {
     return this.tables.find((t) => t.id === id) || null
   }
 
-  /** A safe bite pays a little straight away. Returns the cash granted. */
-  recordSafeBite(session, now) {
+  /**
+   * A safe bite pays a little straight away. Returns the cash granted. In a practice
+   * match (`vsBot`) it pays a share and doesn't count towards the treats quest.
+   */
+  recordSafeBite(session, now, vsBot = false) {
+    if (session.isBot) return 0
     const p = session.profile
-    const cash = DATA.safeReward * (profiles.isWeekend(now) ? 2 : 1) * (p.passes.includes('cash2x') ? 2 : 1)
+    const scale = vsBot ? DATA.bots.rewardScale : 1
+    const cash = Math.round(
+      DATA.safeReward * (profiles.isWeekend(now) ? 2 : 1) * (p.passes.includes('cash2x') ? 2 : 1) * scale,
+    )
     p.cash += cash
-    profiles.addQuestEvent(p, 'safe', 1, now)
+    if (!vsBot) profiles.addQuestEvent(p, 'safe', 1, now)
     profiles.markDirty(p)
     session.pushProfile(now)
     return cash
   }
 
-  /** Awards a win. Returns the cash granted. */
-  recordWin(session, now) {
+  /**
+   * Awards a win and returns the cash granted. A win over a practice bot (`vsBot`) pays
+   * a share of the usual cash and XP, and counts for no wins, streaks, win quests or
+   * leaderboards, so bots can't be farmed for rank.
+   */
+  recordWin(session, now, vsBot = false) {
+    if (session.isBot) return 0
     const p = session.profile
     const has = (pass) => p.passes.includes(pass)
-    const cash = DATA.winReward * (profiles.isWeekend(now) ? 2 : 1) * (has('cash2x') ? 2 : 1)
-
-    const streakBefore = p.streak
+    const scale = vsBot ? DATA.bots.rewardScale : 1
+    const cash = Math.round(DATA.winReward * (profiles.isWeekend(now) ? 2 : 1) * (has('cash2x') ? 2 : 1) * scale)
     p.cash += cash
-    p.wins += has('wins2x') ? 2 : 1
-    p.streak += has('streak2x') ? 2 : 1
-    p.bestStreak = Math.max(p.bestStreak, p.streak)
     profiles.addQuestEvent(p, 'play', 1, now)
-    profiles.addQuestEvent(p, 'win', 1, now)
-    if (p.streak >= 3) profiles.addQuestEvent(p, 'streak3', 1, now)
 
-    // Win-streak milestones pay a bonus, announced to the whole server.
-    for (const [milestone, bonus] of Object.entries(DATA.streakBonuses)) {
-      const m = Number(milestone)
-      if (streakBefore < m && p.streak >= m) {
-        p.cash += bonus
-        session.toast(`🔥 ${m} win streak! +$${bonus}`)
-        this.broadcast('toast', { text: `🔥 ${session.player.name} is on a ${m} win streak!` }, { except: session.client })
+    if (!vsBot) {
+      const streakBefore = p.streak
+      p.wins += has('wins2x') ? 2 : 1
+      p.streak += has('streak2x') ? 2 : 1
+      p.bestStreak = Math.max(p.bestStreak, p.streak)
+      profiles.addQuestEvent(p, 'win', 1, now)
+      if (p.streak >= 3) profiles.addQuestEvent(p, 'streak3', 1, now)
+
+      // Win-streak milestones pay a bonus, announced to the whole server.
+      for (const [milestone, bonus] of Object.entries(DATA.streakBonuses)) {
+        const m = Number(milestone)
+        if (streakBefore < m && p.streak >= m) {
+          p.cash += bonus
+          session.toast(`🔥 ${m} win streak! +$${bonus}`)
+          this.broadcast('toast', { text: `🔥 ${session.player.name} is on a ${m} win streak!` }, { except: session.client })
+        }
       }
+
+      // Bloxity leaderboards, from server-owned state only.
+      submitScore(session.userId, 'wins', has('wins2x') ? 2 : 1)
+      submitScore(session.userId, 'best_streak', p.bestStreak)
+      session.player.streak = p.streak
     }
     profiles.markDirty(p)
 
-    // Bloxity leaderboards, from server-owned state only.
-    submitScore(session.userId, 'wins', has('wins2x') ? 2 : 1)
-    submitScore(session.userId, 'best_streak', p.bestStreak)
-
-    session.player.streak = p.streak
-    this.giveXp(session, DATA.xp.win)
+    this.giveXp(session, Math.round(DATA.xp.win * scale))
     session.pushProfile(now)
     return cash
   }
@@ -244,18 +331,21 @@ class GameRoom extends Room {
 
   /**
    * A lost match still pays a little (and XP), so every game moves you forward.
-   * Quitting or timing out pays nothing. Returns the cash given.
+   * Quitting or timing out pays nothing. Returns the cash given. Against a practice
+   * bot (`vsBot`) the payout shrinks and the win streak is left alone.
    */
-  recordLoss(session, now, reason = 'poisoned') {
+  recordLoss(session, now, reason = 'poisoned', vsBot = false) {
+    if (session.isBot) return 0
     const p = session.profile
-    p.streak = 0
+    const scale = vsBot ? DATA.bots.rewardScale : 1
+    if (!vsBot) p.streak = 0
     profiles.addQuestEvent(p, 'play', 1, now)
     const finished = reason === 'poisoned'
-    const cash = finished ? DATA.lossReward * (profiles.isWeekend(now) ? 2 : 1) : 0
+    const cash = finished ? Math.round(DATA.lossReward * (profiles.isWeekend(now) ? 2 : 1) * scale) : 0
     p.cash += cash
     profiles.markDirty(p)
-    session.player.streak = 0
-    if (finished) this.giveXp(session, DATA.xp.loss)
+    if (!vsBot) session.player.streak = 0
+    if (finished) this.giveXp(session, Math.round(DATA.xp.loss * scale))
     session.pushProfile(now)
     return cash
   }

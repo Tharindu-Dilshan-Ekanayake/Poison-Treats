@@ -30,6 +30,14 @@ export const SELF_ANCHOR = 'self'
 /** Each avatar's visual group (seated/dance offsets included), for halos: id -> Object3D. */
 export const avatarAnchors = new Map()
 
+/**
+ * Each avatar's measured top (head, hat or hair) in world units above its feet:
+ * id -> number. Name tags and halos sit above this, so a tall player or a tall hat
+ * never ends up wearing its own name. Written by PlayerAvatar.
+ */
+export const avatarTops = new Map()
+if (typeof window !== 'undefined') window.__avatarTops = avatarTops
+
 /** Bloxity emotes playing on remote players: id -> { clip, start }. */
 export const remoteEmotes = new Map()
 

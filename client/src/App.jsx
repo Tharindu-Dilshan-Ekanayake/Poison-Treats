@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 
 import { platform, setAdScreen, usePlatform } from './bloxity/platform'
-import { isPlayingPhase, useGame } from './net/gameStore'
+import { useGame } from './net/gameStore'
 import { renderStats } from './net/liveState'
 import { useConnection } from './net/useConnection'
 import HUD from './ui/HUD'
@@ -31,21 +31,19 @@ function FpsReadout() {
   )
 }
 
+/** The only menus that show ads: Shop (which also holds the Starter Pack), Items and Quests. */
+const AD_PANELS = new Set(['shop', 'items', 'quests'])
+
 /**
- * Tells Bloxity which screen is showing so it can place banners around it:
- * a menu panel, the pre-duel wait/countdown ('lobby') or a duel result.
+ * Ads appear only while one of AD_PANELS is open. Bloxity places screen banners for
+ * whichever screen type we announce, so announcing nothing at any other time (lobby,
+ * duels, results, other menus) means no banners there.
  */
 function useAdScreens() {
   const modal = useGame((s) => s.modal)
-  const phase = useGame((s) => s.match?.phase)
-  const result = useGame((s) => s.result)
   useEffect(() => {
-    if (modal) setAdScreen('panel')
-    else if (result || phase === 'ended') setAdScreen('results')
-    else if (phase === 'waiting' || phase === 'countdown') setAdScreen('lobby')
-    else if (isPlayingPhase(phase)) setAdScreen('gameplay')
-    else setAdScreen(null)
-  }, [modal, phase, result])
+    setAdScreen(AD_PANELS.has(modal) ? 'panel' : null)
+  }, [modal])
 }
 
 /** Esc closes an open menu; otherwise, inside Bloxity, it opens Bloxity's menu. */
@@ -60,15 +58,42 @@ function useEscapeMenu() {
   }, [])
 }
 
+/**
+ * After the scene is drawn, the longest the loading screen waits for the server. A
+ * hosted server that was asleep can take much longer to wake; past this the lobby
+ * opens anyway, with a "connecting" notice on top, instead of a frozen loading screen.
+ */
+const CONNECT_WAIT_MAX_MS = 1500
+
+/**
+ * True once the lobby can be shown: the scene is drawn and the server is connected, or
+ * the short wait for it ran out. Once open it stays open (a later reconnect shows a
+ * notice, never the loading screen again). Other players' avatars are not waited for:
+ * they appear as they finish loading.
+ */
+function useLobbyReady(sceneReady) {
+  const online = useGame((s) => s.status === 'online')
+  const [opened, setOpened] = useState(false)
+
+  useEffect(() => {
+    if (opened || !sceneReady) return undefined
+    const id = setTimeout(() => setOpened(true), online ? 0 : CONNECT_WAIT_MAX_MS)
+    return () => clearTimeout(id)
+  }, [opened, sceneReady, online])
+
+  return opened
+}
+
 function App() {
   useConnection()
   useAdScreens()
   useEscapeMenu()
-  const [ready, setReady] = useState(false)
+  const [sceneReady, setSceneReady] = useState(false)
+  const ready = useLobbyReady(sceneReady)
   const modal = useGame((s) => s.modal)
   const showFps = usePlatform((s) => s.showFps)
   const touch = useTouch((s) => s.touch)
-  const onReady = useCallback(() => setReady(true), [])
+  const onReady = useCallback(() => setSceneReady(true), [])
 
   return (
     <div className="relative h-dvh w-screen select-none overflow-hidden bg-[#86c8fb] font-game">

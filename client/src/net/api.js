@@ -15,6 +15,11 @@ const load = () =>
     return m
   }))
 
+/** Starts downloading the network chunk now, so it is ready the moment sign-in settles. */
+export function prefetch() {
+  load()
+}
+
 export function connect(joinOptions) {
   load().then((m) => m.connect(joinOptions))
 }

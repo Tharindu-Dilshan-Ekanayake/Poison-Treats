@@ -93,7 +93,7 @@ function drawAtlas(canvas, phase) {
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.lineJoin = 'round'
-  const text = 'Sweet or Poison'
+  const text = 'Poison Treats'
   const tw = ctx.measureText(text).width
   ctx.lineWidth = size * 0.2
   ctx.strokeStyle = '#120720'

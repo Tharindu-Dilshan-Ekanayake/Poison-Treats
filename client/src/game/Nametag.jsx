@@ -3,13 +3,14 @@ import { useEffect, useRef } from 'react'
 import { Vector3 } from 'three'
 
 import { useGame } from '../net/gameStore'
-import { bubbles, localPlayer } from '../net/liveState'
+import { avatarTops, bubbles, localPlayer, SELF_ANCHOR } from '../net/liveState'
 import { Label } from './labels'
-import { titleById } from './layout'
+import { PLAYER_HEIGHT, titleById } from './layout'
 import { getSettings } from './quality'
 import { useDisposable } from './useDisposable'
 
-const NAME_Y = 2.05
+/** Gap between the top of the head (or hat) and the bottom of the name. */
+const NAME_GAP = 0.25
 const _world = new Vector3()
 
 /**
@@ -45,6 +46,10 @@ export function Nametag({ id, name, streak, title = '', isSelf = false, gate = n
     const self = ref.current
     if (!self) return
 
+    // Above the avatar's real head top (measured by PlayerAvatar), not a fixed height.
+    const nameY = (avatarTops.get(isSelf ? SELF_ANCHOR : id) ?? PLAYER_HEIGHT) + NAME_GAP
+    labels.name.sprite.position.y = nameY
+
     const b = bubbles.get(id)
     if (b && b.version !== seenVersion.current) {
       seenVersion.current = b.version
@@ -73,13 +78,13 @@ export function Nametag({ id, name, streak, title = '', isSelf = false, gate = n
     labels.bubble.sprite.visible = Boolean(
       b && b.until > Date.now() && (allowed || d < 6) && d < limit * 1.5 && !labels.bubble.empty,
     )
-    labels.bubble.sprite.position.y = NAME_Y + labels.name.sprite.scale.y + 0.06
+    labels.bubble.sprite.position.y = nameY + labels.name.sprite.scale.y + 0.06
   })
 
   return (
     <group ref={ref}>
-      <primitive object={labels.name.sprite} position={[0, NAME_Y, 0]} />
-      <primitive object={labels.bubble.sprite} position={[0, NAME_Y + 0.5, 0]} />
+      <primitive object={labels.name.sprite} position={[0, PLAYER_HEIGHT + NAME_GAP, 0]} />
+      <primitive object={labels.bubble.sprite} position={[0, PLAYER_HEIGHT + NAME_GAP + 0.5, 0]} />
     </group>
   )
 }

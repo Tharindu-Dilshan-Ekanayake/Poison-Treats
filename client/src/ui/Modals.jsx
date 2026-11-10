@@ -549,6 +549,7 @@ const HELP_STEPS = [
   ['🧪', 'Poison a treat', 'When a second player sits down across from you, you both secretly tap one treat to poison it. Yours glows green, only for you.'],
   ['🍬', 'Take turns eating', `Tap a treat to eat it. Every safe bite pays $${DATA.safeReward}. Don't eat your own poison!`],
   ['☠️', 'Bite the poison, lose', `Whoever eats a poisoned treat loses. The other player wins $${DATA.winReward}. Even if you lose, you get $${DATA.lossReward} and XP for playing.`],
+  ['🤖', 'Nobody to play?', 'Sit at a table and tap PLAY BOT. A practice bot joins you (half rewards, no leaderboard points).'],
   ['⭐', 'Level up', 'Every match gives XP. Each new level pays cash, and some unlock cool titles for your name.'],
   ['📜', 'Quests & gifts', 'Finish 3 daily quests, open a free gift every 10 minutes, and claim your daily reward.'],
   ['🛍️', 'Spend your cash', 'Buy chairs and thrones, glowing auras, titles and emotes in the Shop. Show them off!'],

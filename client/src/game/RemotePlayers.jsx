@@ -168,6 +168,7 @@ const RemotePlayer = memo(function RemotePlayer({ meta }) {
               castShadow={false}
               targetHeight={PLAYER_HEIGHT}
               motionRef={motionRef}
+              topKey={id}
             />
           </Suspense>
         </group>

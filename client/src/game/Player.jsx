@@ -199,7 +199,7 @@ export function Player({ onAvatarReady }) {
   return (
     <group ref={groupRef} position={localPlayer.position.toArray()}>
       <group ref={visualRef} rotation={[0, localPlayer.ry, 0]}>
-        <PlayerAvatar onReady={onAvatarReady} targetHeight={PLAYER_HEIGHT} motionRef={motionRef} />
+        <PlayerAvatar onReady={onAvatarReady} targetHeight={PLAYER_HEIGHT} motionRef={motionRef} topKey={SELF_ANCHOR} />
       </group>
       <group ref={tagRef}>
         {selfId && <Nametag id={selfId} name={name || 'You'} streak={streak} title={title} isSelf />}

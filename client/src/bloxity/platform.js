@@ -258,7 +258,8 @@ let screenType = null
 /**
  * Tells Bloxity which screen is showing so it can place banners around it. Our HUD
  * keeps the top-right corner (profile and quests), so that position stays free.
- * Pass null when no listed screen is showing.
+ * Pass null when no ad-carrying screen is showing: this game announces only its
+ * 'panel' menus (see AD_PANELS in App.jsx), so ads show nowhere else.
  */
 export function setAdScreen(type) {
   if (type === screenType) return

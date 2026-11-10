@@ -17,6 +17,7 @@ import { loadOBJ, loadPartGLB, loadTexture } from '../bloxity/avatarLoader'
 import { useBloxity } from '../bloxity/BloxityContext'
 import { platform } from '../bloxity/platform'
 import { DEFAULT_PROPORTIONS } from '../bloxity/store'
+import { avatarTops } from '../net/liveState'
 import {
   animateRig,
   applyEmote,
@@ -35,6 +36,16 @@ import { mergeBody, unmergeBody } from './mergeBody'
  * say) with no physics body feeding it motion.
  */
 const _idleMotion = { time: 0, speed: 0, grounded: true, maxSpeed: 6 }
+
+/** Frames an avatar must be on screen before its height is measured (bones need to settle). */
+const MEASURE_FRAMES = 3
+/** The height is re-measured this often (seconds), in case a hat or hair finished loading. */
+const REMEASURE_S = 2
+const _topBox = new Box3()
+/** Re-skins a mesh's bounding box to the pose it has now (reusing its Box3). */
+const refreshBounds = (o) => {
+  if (o.isSkinnedMesh) o.computeBoundingBox()
+}
 function fallbackMotion(delta) {
   _idleMotion.time += delta
   return _idleMotion
@@ -117,6 +128,7 @@ export const PlayerAvatar = forwardRef(function PlayerAvatar(
     proportions: proportionsProp,
     silent = false,
     castShadow = true,
+    topKey = null,
     ...props
   },
   ref,
@@ -324,9 +336,43 @@ export const PlayerAvatar = forwardRef(function PlayerAvatar(
     proportionsRef.current = custom ? DEFAULT_PROPORTIONS : proportions
   }, [custom, proportions])
 
+  // --- Height, for name tags and halos ------------------------------------------
+  // The avatar is fitted to a fixed height once, but each player's proportions (and
+  // any hat or hair) move the top of the head. Measured from the posed skeleton
+  // whenever the look changes, when the avatar first appears, and every few seconds;
+  // a tag placed at one fixed height would sit inside tall heads.
+  const measureIn = useRef(MEASURE_FRAMES)
+  const sinceMeasure = useRef(0)
+  useEffect(() => {
+    measureIn.current = MEASURE_FRAMES
+  }, [assembled, equipped, proportions, custom])
+  useEffect(
+    () => () => {
+      if (topKey) avatarTops.delete(topKey)
+    },
+    [topKey],
+  )
+
+  const measureTop = () => {
+    const root = rootRef.current
+    if (!topKey || !root || !rig.skeleton) return
+    root.updateWorldMatrix(true, true)
+    rig.skeleton.update()
+    root.traverse(refreshBounds)
+    _topBox.setFromObject(root)
+    if (_topBox.isEmpty()) return
+    // Relative to the avatar's feet, without the walking bob the animation adds.
+    const bob = (rig.root.position.y - rig.rootRestY) * root.scale.y
+    const top = _topBox.max.y - root.parent.matrixWorld.elements[13] - bob
+    if (Number.isFinite(top) && top > 0.5 && top < 8) avatarTops.set(topKey, top)
+  }
+
   useFrame((_state, delta) => {
     // Culled or LOD-swapped avatars skip their bone work entirely.
-    if (!isShown(rootRef.current)) return
+    if (!isShown(rootRef.current)) {
+      measureIn.current = MEASURE_FRAMES
+      return
+    }
     try {
       const motion = motionRef?.current ?? fallbackMotion(delta)
       // Order matters: proportions reset every bone to its rest pose, the animation
@@ -337,6 +383,17 @@ export const PlayerAvatar = forwardRef(function PlayerAvatar(
         motion.emote.done = true
       }
       updateFollowers(rig, followers.current)
+
+      sinceMeasure.current += delta
+      if (sinceMeasure.current > REMEASURE_S) {
+        sinceMeasure.current = 0
+        if (!measureIn.current) measureIn.current = 1
+      }
+      // Raised arms (dancing, emotes, jumping, a hand up eating a treat) would count as
+      // a taller head: wait.
+      const posing =
+        motion.dancing || (motion.emote && !motion.emote.done) || motion.grounded === false || motion.eat > 0
+      if (measureIn.current > 0 && !posing && --measureIn.current === 0) measureTop()
     } catch {
       // A malformed payload must not kill the render loop.
     }

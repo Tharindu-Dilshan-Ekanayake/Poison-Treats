@@ -60,6 +60,11 @@ class Table {
     this.token += 1
   }
 
+  /** Is one of the seats a practice bot? */
+  vsBot() {
+    return this.seats.some((s) => s?.isBot)
+  }
+
   seatOf(session) {
     return this.seats.indexOf(session)
   }
@@ -156,7 +161,7 @@ class Table {
     this.safe[i] += 1
     let reward = 0
     if (eater) {
-      reward = this.room.recordSafeBite(eater, now)
+      reward = this.room.recordSafeBite(eater, now, this.vsBot())
       this.room.bubble(eater, 'SAFE 😋')
     }
     this.room.broadcast('bite', { table: this.id, i: n, by: eater?.id ?? '', poisoned: false, reward })
@@ -201,9 +206,11 @@ class Table {
     const loser = this.seats[l]
     let reward = 0
 
-    if (winner) reward = this.room.recordWin(winner, now)
+    // A practice match (against a bot) pays less and doesn't count for the boards.
+    const vsBot = this.vsBot()
+    if (winner) reward = this.room.recordWin(winner, now, vsBot)
     let consolation = 0
-    if (loser) consolation = this.room.recordLoss(loser, now, reason)
+    if (loser) consolation = this.room.recordLoss(loser, now, reason, vsBot)
     if (loser) this.room.bubble(loser, reason === 'poisoned' ? 'BLEHH ☠️' : '')
     if (winner) this.room.bubble(winner, reason === 'poisoned' ? 'Hehe 😈' : 'GG 👍')
 

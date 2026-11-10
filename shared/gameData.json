@@ -1,6 +1,6 @@
 {
   "bloxity": {
-    "gameSlug": "guess-my-number",
+    "gameSlug": "poison-treats",
     "roomName": "game",
     "leaderboards": [
       {
@@ -38,6 +38,16 @@
     ]
   },
   "roomSize": 20,
+  "afk": {
+    "warnSeconds": 60,
+    "kickSeconds": 90
+  },
+  "bots": {
+    "enabled": true,
+    "maxBots": 10,
+    "rewardScale": 0.5,
+    "names": ["Max", "Luna", "Zed", "Mira", "Kai", "Nova", "Rex", "Pip", "Juno", "Otto", "Remy", "Skye"]
+  },
   "winReward": 200,
   "timing": {
     "countdown": 3,

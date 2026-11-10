@@ -13,7 +13,8 @@ const path = require('path')
  */
 
 function createFileStore() {
-  const DIR = path.join(__dirname, '..', '..', 'data')
+  // PROFILES_DIR lets test runs keep their throwaway accounts away from real player data.
+  const DIR = process.env.PROFILES_DIR || path.join(__dirname, '..', '..', 'data')
   const FILE = path.join(DIR, 'profiles.json')
 
   return {
