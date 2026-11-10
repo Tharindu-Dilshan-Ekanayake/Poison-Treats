@@ -53,6 +53,20 @@ const WIN_CAM_EXTRA = 0.9
 const WIN_CAM_HEIGHT = 3.3
 const TABLE_LOOK_HEIGHT_WIN = 1.3
 
+/**
+ * Portrait screens (phones held upright) are narrow, and from the table's end the
+ * table would be a small strip. Instead the camera sits high above and behind your
+ * own chair, looking down across the table: the treats fill the width of the screen
+ * (big, easy to tap), your opponent sits at the top, you at the bottom.
+ */
+const PORTRAIT_ASPECT = 1
+/** Half the table's width plus a margin: what must span the screen's width. */
+const PORTRAIT_HALF_WIDTH = 1.55
+const PORTRAIT_ELEVATION = 1.0
+const PORTRAIT_COS = Math.cos(PORTRAIT_ELEVATION)
+const PORTRAIT_SIN = Math.sin(PORTRAIT_ELEVATION)
+const PORTRAIT_WIN_FACTOR = 1.3
+
 const _desired = new Vector3()
 const _target = new Vector3()
 
@@ -150,7 +164,21 @@ export function FollowCamera() {
     const match = useGame.getState().match
     const seat = match && localPlayer.seat
 
-    if (seat) {
+    if (seat && camera.aspect < PORTRAIT_ASPECT) {
+      // Facing of the seat: towards the table and the opponent. The aim point is the
+      // table's middle; the camera is `dist` away from it, up and back along the line
+      // from the opponent through the table to us.
+      const fx = Math.sin(seat.ry)
+      const fz = Math.cos(seat.ry)
+      const lookY = match.won ? TABLE_LOOK_HEIGHT_WIN : TABLE_LOOK_HEIGHT
+      const dist =
+        (PORTRAIT_HALF_WIDTH / (Math.tan((camera.fov * Math.PI) / 360) * camera.aspect)) *
+        (match.won ? PORTRAIT_WIN_FACTOR : 1)
+      const cx = seat.x + fx * TABLE.seatZ
+      const cz = seat.z + fz * TABLE.seatZ
+      _desired.set(cx - fx * dist * PORTRAIT_COS, lookY + dist * PORTRAIT_SIN, cz - fz * dist * PORTRAIT_COS)
+      _target.set(cx, lookY, cz)
+    } else if (seat) {
       // Seat 0 (yaw 0) is on the table's -Z side, seat 1 on its +Z side. Looking along
       // +X puts -Z on the left, along -X puts it on the right, so the camera stands at
       // the -X end for seat 0 and the +X end for seat 1: you are always on the left.
@@ -162,6 +190,9 @@ export function FollowCamera() {
       const dist = Math.max(TABLE_CAM_DIST, fit) + (match.won ? WIN_CAM_EXTRA : 0)
       _desired.set(seat.x + side * dist, match.won ? WIN_CAM_HEIGHT : TABLE_CAM_HEIGHT, centreZ)
       _target.set(seat.x, match.won ? TABLE_LOOK_HEIGHT_WIN : TABLE_LOOK_HEIGHT, centreZ)
+    }
+
+    if (seat) {
       const k = 1 - Math.pow(0.001, delta * (TABLE_SMOOTHING / 10) * 3)
       camera.position.lerp(_desired, k)
       lookAt.current.lerp(_target, k)
