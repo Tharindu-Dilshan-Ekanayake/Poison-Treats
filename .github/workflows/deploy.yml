@@ -7,7 +7,7 @@
 # Repository setup:
 #   secrets.LEGION_DEPLOY_TOKEN        deploy token from hosting.bloxity.io
 #   secrets.LEGION_DEPLOY_TOKEN_STAGE  (optional) deploy token from hosting.stage.bloxity.io
-#   vars.BLOXITY_GAME_ID               the hosting game id (same on prod and stage)
+#   vars.BLOXITY_GAME_ID               (optional) the hosting game id; defaults to poison-treats
 #
 # The client build bakes in no environment, API URL or domain: the platform tells
 # the game where it is at runtime.
@@ -50,7 +50,8 @@ jobs:
       matrix:
         target: ${{ fromJSON(needs.targets.outputs.list) }}
     env:
-      GAME_ID: ${{ vars.BLOXITY_GAME_ID }}
+      # The game id is public and fixed, so the repository variable is optional.
+      GAME_ID: ${{ vars.BLOXITY_GAME_ID || 'poison-treats' }}
       CHANNEL: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
       API_URL: ${{ matrix.target == 'staging' && 'https://api.stage.bloxity.io' || 'https://api.bloxity.io' }}
       LEGION_URL: ${{ matrix.target == 'staging' && 'https://legion.stage.bloxity.io' || 'https://legion.bloxity.io' }}
@@ -62,12 +63,11 @@ jobs:
 
       - name: Check configuration
         run: |
-          if [ -z "$GAME_ID" ]; then echo "::error::Set the repository variable BLOXITY_GAME_ID"; exit 1; fi
           if [ -z "$DEPLOY_TOKEN" ]; then
             if [ "${{ matrix.target }}" = "staging" ]; then
-              echo "::error::LEGION_DEPLOY_TOKEN_STAGE is empty. Staging never falls back to the prod token."
+              echo "::error::LEGION_DEPLOY_TOKEN_STAGE is empty. Add it under Settings > Secrets and variables > Actions > Secrets. Staging never falls back to the prod token."
             else
-              echo "::error::LEGION_DEPLOY_TOKEN is empty."
+              echo "::error::LEGION_DEPLOY_TOKEN is empty. Add it under Settings > Secrets and variables > Actions > Secrets (a SECRET, not a variable)."
             fi
             exit 1
           fi
@@ -108,7 +108,7 @@ jobs:
       - name: Build client
         working-directory: client
         env:
-          VITE_BLOXITY_HOSTING_ID: ${{ vars.BLOXITY_GAME_ID }}
+          VITE_BLOXITY_HOSTING_ID: ${{ env.GAME_ID }}
         run: npm ci && npm run build
       - name: Upload client
         run: |

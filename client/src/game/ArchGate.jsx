@@ -93,7 +93,7 @@ function drawAtlas(canvas, phase) {
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.lineJoin = 'round'
-  const text = 'Guess My Number'
+  const text = 'Poison Treats'
   const tw = ctx.measureText(text).width
   ctx.lineWidth = size * 0.2
   ctx.strokeStyle = '#120720'
@@ -107,9 +107,9 @@ function drawAtlas(canvas, phase) {
   ctx.fillStyle = phase ? '#ffffff' : '#ffe84d'
   ctx.fillText('★', w / 2 + tw / 2 + size * 0.55, h * 0.5)
 
-  // ---- Pillar plaques: "1" and "100", the range you guess in ----
+  // ---- Pillar plaques: a treat on one side, the poison on the other ----
   const py = BOARD_PX + 8
-  ;['1', '100'].forEach((label, k) => {
+  ;['🍬', '☠️'].forEach((label, k) => {
     const px = 8 + k * (PLAQUE_PX + 16)
     roundRect(ctx, px, py, PLAQUE_PX, PLAQUE_PX, 16)
     ctx.fillStyle = '#ffd92e'

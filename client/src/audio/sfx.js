@@ -278,25 +278,52 @@ export const sfx = {
     bell(G5, 0, 0.4, 0.15)
     bell(C6, 0.12, 0.7, 0.16)
   }),
-  /** Waiting for the answer: a short, building drum roll. */
-  drum: play(() => {
-    const hits = 9
-    for (let i = 0; i < hits; i += 1) {
-      const t = (i / hits) * 0.95 * (1 - i * 0.025)
-      thump(t, 150 + i * 6, 0.05 + i * 0.012)
+  /** Pointer over a treat: the faintest candy-wrapper tick. */
+  hover: play(() => {
+    voice(2400, 0, 0.03, { gain: 0.035, glide: 2000 })
+  }),
+  /** Poisoned a treat: a bubbly glug sliding down, with a fizz. */
+  poisonPick: play(() => {
+    for (let i = 0; i < 4; i += 1) voice(520 - i * 70, i * 0.07, 0.09, { glide: 900 - i * 90, gain: 0.1 })
+    noise(0.05, 0.45, { filter: 'highpass', freq: 5000, freqEnd: 9000, gain: 0.035 })
+  }),
+  /**
+   * Biting a treat: a lift "whoop", then three crunches timed to the bite
+   * animation (see Candies), with a little suspense pulse under them.
+   */
+  munch: play(() => {
+    voice(300, 0, 0.3, { type: 'triangle', glide: 720, gain: 0.06, filter: 2000 })
+    ;[0.6, 0.85, 1.1].forEach((t, i) => {
+      noise(t, 0.09, { freq: 1800 + i * 300, q: 0.9, gain: 0.22, attack: 0.002 })
+      noise(t + 0.03, 0.06, { freq: 3500, q: 1.5, gain: 0.1, attack: 0.002 })
+      thump(t, 120, 0.06)
+    })
+    // A heartbeat while everyone waits to see if it was poison.
+    thump(0.2, 70, 0.12)
+    thump(0.42, 66, 0.1)
+    thump(1.25, 70, 0.14)
+  }),
+  /** Safe! A gulp, then a bright little "ding-ding". */
+  safe: play(() => {
+    voice(380, 0, 0.12, { glide: 190, gain: 0.12 })
+    bell(E6, 0.12, 0.35, 0.13)
+    bell(A5 * 2, 0.22, 0.6, 0.15)
+    noise(0.12, 0.4, { filter: 'highpass', freq: 7000, gain: 0.03, reverb: 0.4 })
+  }),
+  /** Poisoned: a sour minor stab, a bubbling gurgle and a woozy slide down. */
+  poison: play(() => {
+    for (const f of [NOTE(-9), NOTE(-6), NOTE(-2)]) {
+      voice(f, 0, 0.7, { type: 'sawtooth', filter: 1600, filterEnd: 500, gain: 0.07, detune: 18 })
     }
+    for (let i = 0; i < 9; i += 1) {
+      voice(180 + Math.random() * 260, 0.1 + i * 0.07, 0.07, { glide: 500 + Math.random() * 400, gain: 0.07 })
+    }
+    voice(420, 0.35, 1.0, { type: 'triangle', glide: 90, gain: 0.12, vibrato: 14, reverb: 0.3 })
   }),
-  /** Answer: HIGHER, a rising "whoop" and an upward chime. */
-  higher: play(() => {
-    voice(330, 0, 0.28, { type: 'triangle', glide: 880, gain: 0.16, filter: 2500 })
-    bell(C6, 0.2, 0.4, 0.14)
-    bell(G6, 0.3, 0.7, 0.15)
-  }),
-  /** Answer: LOWER, a falling "whoop" and a downward chime. */
-  lower: play(() => {
-    voice(880, 0, 0.28, { type: 'triangle', glide: 300, gain: 0.16, filter: 2500 })
-    bell(G5, 0.2, 0.4, 0.14)
-    bell(C5, 0.3, 0.7, 0.15)
+  /** The poisoned player bursts: a wet splat. */
+  splat: play(() => {
+    noise(0, 0.35, { filter: 'lowpass', freq: 1400, freqEnd: 200, gain: 0.3 })
+    thump(0, 90, 0.2)
   }),
   /** Won the duel: a fanfare, a big chord and a cymbal shimmer. */
   win: play(() => {

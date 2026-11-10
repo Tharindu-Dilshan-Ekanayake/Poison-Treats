@@ -30,6 +30,14 @@ export const SELF_ANCHOR = 'self'
 /** Each avatar's visual group (seated/dance offsets included), for halos: id -> Object3D. */
 export const avatarAnchors = new Map()
 
+/**
+ * Each avatar's measured top (head, hat or hair) in world units above its feet:
+ * id -> number. Name tags and halos sit above this, so a tall player or a tall hat
+ * never ends up wearing its own name. Written by PlayerAvatar.
+ */
+export const avatarTops = new Map()
+if (typeof window !== 'undefined') window.__avatarTops = avatarTops
+
 /** Bloxity emotes playing on remote players: id -> { clip, start }. */
 export const remoteEmotes = new Map()
 
@@ -46,13 +54,25 @@ export const remoteSeats = new Map()
 /** Speech bubbles: id -> { text, until, version }. */
 export const bubbles = new Map()
 
+/** Players munching a treat: session id -> epoch ms the bite started. */
+export const eatingSince = new Map()
+
+/**
+ * Treat animations per table, written by socket.js and played by Candies:
+ * table id -> { i, seat, start, poisoned } (`poisoned` null until the outcome).
+ */
+export const candyBites = new Map()
+
+/** The treat under the pointer at the player's own table: { table, i } (i = -1 for none). */
+export const candyHover = { table: 0, i: -1 }
+
 /** Remote players hidden by the loss effect: id -> epoch ms. */
 export const hiddenUntil = new Map()
 
 /** Virtual joystick + jump button, written by TouchControls. */
 export const touchInput = { x: 0, y: 0, jump: false }
 
-/** Requests for the particle system: { kind: 'confetti'|'break', x, y, z }. */
+/** Requests for the particle system: { kind: 'confetti'|'break'|'crumbs'|'goo', x, y, z }. */
 export const effectQueue = []
 
 /** Latest renderer stats, for the HUD perf readout and automated checks. */

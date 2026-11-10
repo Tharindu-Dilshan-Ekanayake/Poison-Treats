@@ -10,8 +10,12 @@ import { create } from 'zustand'
 let toastId = 0
 
 export const useGame = create((set, get) => ({
-  /** 'connecting' | 'online' | 'offline' */
+  /** 'connecting' | 'online' | 'offline' | 'failed' | 'afk' (removed for being away) */
   status: 'connecting',
+  /** The matchmaker is starting a game server (nobody was playing): the first join takes longer. */
+  serverWaking: false,
+  /** When the "Still there?" countdown ends (server removes an idle player then); 0 = none. */
+  afkWarnUntil: 0,
   selfId: null,
   roomId: null,
   capacity: 20,
@@ -28,16 +32,14 @@ export const useGame = create((set, get) => ({
   /** null | 'shop' | 'items' | 'rewards' | 'quests' | 'help' | 'settings' */
   modal: null,
   shopTab: 'chairs',
-  /** Duel outcome banner for this player: { win, reward, theirNumber, until }. */
+  /** Match outcome banner for this player: { win, reward, reason, safe, until }. */
   result: null,
-  /**
-   * The guess being revealed at this table: { mine, n, answer, until }. `answer` is
-   * null during the suspense, then 'higher' | 'lower' | 'correct'.
-   */
-  reveal: null,
+  /** The latest bite's outcome at this player's table: { mine, poisoned, reward, until }. */
+  bite: null,
   /** Level-up celebration: { level, reward, title, until }. */
   levelUp: null,
-  emotesOpen: true,
+  /** The quick-phrase list in a match: folded away until the player opens it. */
+  emotesOpen: false,
 
   openModal: (modal, shopTab) => set({ modal, ...(shopTab ? { shopTab } : {}) }),
   closeModal: () => set({ modal: null }),
@@ -51,4 +53,4 @@ export const useGame = create((set, get) => ({
   },
 }))
 
-export const isPlayingPhase = (phase) => phase === 'choosing' || phase === 'guessing'
+export const isPlayingPhase = (phase) => phase === 'poisoning' || phase === 'eating'

@@ -148,7 +148,9 @@ const gameServer = new Server({
 // NOTE: like /api/legion-auth above, the game trusts the Bloxity user id the client
 // sends when joining (see Session.resolveIdentity). Verify the Bloxity token there
 // before real money or leaderboards depend on it.
-gameServer.define(DATA.bloxity.roomName, GameRoom)
+// Fullest lobby first: a new or refreshing player lands where other players are, and a
+// new room only opens when every existing one is full.
+gameServer.define(DATA.bloxity.roomName, GameRoom).sortBy({ clients: -1 })
 // Colyseus owns SIGINT/SIGTERM: it lets every room run onLeave (which banks
 // progress) before this final save.
 gameServer.onShutdown(async () => {

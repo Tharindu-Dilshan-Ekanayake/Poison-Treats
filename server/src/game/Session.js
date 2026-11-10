@@ -68,6 +68,9 @@ class Session {
     this.seat = null
     this.lastEmoteAt = 0
     this.lastAnimAt = 0
+    /** Last time the player did something (see `touch`), for the AFK check. */
+    this.lastActiveAt = now
+    this.afkWarned = false
     /** Verified Bloxity account id, or '' for a guest. */
     this.userId = identity.userId
 
@@ -105,7 +108,7 @@ class Session {
     this.send('profile', { profile: this.profileView(now) })
   }
 
-  /** Back to the lobby spawn point (after losing a duel). */
+  /** Back to the lobby spawn point (after losing a match). */
   respawn() {
     const [x, y, z] = DATA.world.spawn
     const p = this.player
@@ -132,25 +135,33 @@ class Session {
     profiles.markDirty(this.profile)
   }
 
+  /** The player did something: they are not away. */
+  touch(now) {
+    this.lastActiveAt = now
+    this.afkWarned = false
+  }
+
   /** Routes one client message. `msg` is untrusted. */
   handle(type, msg, now) {
     msg = msg && typeof msg === 'object' ? msg : {}
+    // Position updates arrive every second even from a player who isn't there (onPos
+    // only counts real movement), and avatar updates aren't the player's doing.
+    if (type !== 'pos' && type !== 'avatar') this.touch(now)
     switch (type) {
+      case 'active':
+        return undefined
       case 'pos':
-        return this.onPos(msg)
+        return this.onPos(msg, now)
       case 'sit':
         return this.onSit(msg, now)
       case 'leave':
         return this.seat?.table.leave(this, now)
-      case 'pick':
-        return this.seat?.table.pick(this, msg.n, now)
-      case 'guess':
-        return this.seat?.table.guess(this, msg.n, now)
-      case 'power': {
-        const err = this.seat ? this.seat.table.power(this, msg.kind, now) : 'Sit at a table first'
-        if (err) this.toast(err)
-        return undefined
-      }
+      case 'poison':
+        return this.seat?.table.poisonCandy(this, msg.n, now)
+      case 'eat':
+        return this.seat?.table.eat(this, msg.n, now)
+      case 'bot':
+        return this.room.requestBot(this, now)
       case 'emote':
         return this.onEmote(msg, now)
       case 'buy':
@@ -172,12 +183,16 @@ class Session {
     }
   }
 
-  onPos(msg) {
+  onPos(msg, now) {
     if (this.seat) return
     const p = this.player
-    p.x = clamp(finite(msg.x, p.x), -HALF, HALF)
-    p.y = clamp(finite(msg.y, 0), -5, 20)
-    p.z = clamp(finite(msg.z, p.z), -HALF, HALF)
+    const x = clamp(finite(msg.x, p.x), -HALF, HALF)
+    const y = clamp(finite(msg.y, 0), -5, 20)
+    const z = clamp(finite(msg.z, p.z), -HALF, HALF)
+    if (Math.hypot(x - p.x, z - p.z) > 0.05 || Math.abs(y - p.y) > 0.05) this.touch(now)
+    p.x = x
+    p.y = y
+    p.z = z
     p.ry = finite(msg.ry)
     p.s = clamp(finite(msg.s), 0, 20)
     p.g = Boolean(msg.g)

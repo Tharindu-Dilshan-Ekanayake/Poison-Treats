@@ -1,5 +1,5 @@
 ---
-gameSlug: guess-my-number
+gameSlug: poison-treats
 clientDir: client
 buildCommand: npm ci && npm run build
 distDir: client/dist
@@ -36,7 +36,7 @@ notApplicable:
   (`server/src/bloxity/leaderboards.js`), never from a client message.
 - Players join through Bloxity's matchmaker (`Legion.SDK.net.resolveEndpoint`)
   when `VITE_BLOXITY_HOSTING_ID` is set at build time (the deploy workflow sets it
-  from the `BLOXITY_GAME_ID` repository variable).
+  from the `BLOXITY_GAME_ID` repository variable, or `poison-treats` when unset).
 - The game server verifies every signed-in player's Bloxity token
   (`/v1/auth/game-token/verify`) and carries guest progress into a new account
   (`carriedFrom`).

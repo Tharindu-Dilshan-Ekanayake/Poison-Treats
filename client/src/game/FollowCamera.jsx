@@ -5,7 +5,6 @@ import { Vector3 } from 'three'
 import { usePlatform } from '../bloxity/platform'
 import { useGame } from '../net/gameStore'
 import { localPlayer } from '../net/liveState'
-import { DATA, TABLE } from './layout'
 
 /** How high above the player's feet the camera aims. */
 const LOOK_HEIGHT = 2
@@ -34,12 +33,19 @@ const POSITION_SMOOTHING = 4
 const LOOK_SMOOTHING = 8
 const TABLE_SMOOTHING = 3
 
-/** Seated view: across the table from the two players, looking at them. */
-const TABLE_CAM_BACK = 3.1
-const TABLE_CAM_HEIGHT = 1.9
-const TABLE_LOOK_HEIGHT = 1.15
-/** Looks higher while the winner dances up on the table. */
-const TABLE_LOOK_HEIGHT_WIN = 1.9
+/**
+ * Seated view: over your own shoulder, high enough to see every treat on the table
+ * and your opponent sitting across from you.
+ */
+const TABLE_CAM_BACK = 1.35
+const TABLE_CAM_HEIGHT = 3.0
+const TABLE_LOOK_HEIGHT = 0.85
+/** How far past the table's centre (towards the opponent) the camera aims. */
+const TABLE_LOOK_AHEAD = 1.55
+/** Pulled back and higher while the winner dances up on the table. */
+const WIN_CAM_BACK = 2.6
+const WIN_CAM_HEIGHT = 3.3
+const TABLE_LOOK_HEIGHT_WIN = 1.6
 
 const _desired = new Vector3()
 const _target = new Vector3()
@@ -48,8 +54,8 @@ const _target = new Vector3()
  * Third-person orbit camera that trails the local player.
  * Right-drag (mouse) or one-finger drag (touch) orbits; the wheel zooms.
  *
- * While the player is seated at a table it swings round to face both seats, the
- * duel view, and orbiting is disabled.
+ * While the player is seated at a table it swings round behind their chair, the
+ * match view, and orbiting is disabled.
  */
 export function FollowCamera() {
   const camera = useThree((s) => s.camera)
@@ -136,12 +142,19 @@ export function FollowCamera() {
 
   useFrame((_state, delta) => {
     const match = useGame.getState().match
-    const table = match && DATA.tables.find((t) => t.id === match.table)
+    const seat = match && localPlayer.seat
 
-    if (table) {
-      // A winner dancing up on the table is tall: step back so they fit in frame.
-      _desired.set(table.x, match.won ? 2.3 : TABLE_CAM_HEIGHT, table.z - (match.won ? 3.9 : TABLE_CAM_BACK))
-      _target.set(table.x, match.won ? TABLE_LOOK_HEIGHT_WIN : TABLE_LOOK_HEIGHT, table.z + TABLE.seatZ * 0.7)
+    if (seat) {
+      // Facing of the seat: towards the table and the opponent.
+      const fx = Math.sin(seat.ry)
+      const fz = Math.cos(seat.ry)
+      const back = match.won ? WIN_CAM_BACK : TABLE_CAM_BACK
+      _desired.set(seat.x - fx * back, match.won ? WIN_CAM_HEIGHT : TABLE_CAM_HEIGHT, seat.z - fz * back)
+      _target.set(
+        seat.x + fx * TABLE_LOOK_AHEAD,
+        match.won ? TABLE_LOOK_HEIGHT_WIN : TABLE_LOOK_HEIGHT,
+        seat.z + fz * TABLE_LOOK_AHEAD,
+      )
       const k = 1 - Math.pow(0.001, delta * (TABLE_SMOOTHING / 10) * 3)
       camera.position.lerp(_desired, k)
       lookAt.current.lerp(_target, k)

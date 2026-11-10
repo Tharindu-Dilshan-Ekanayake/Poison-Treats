@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 
 import { useBloxity } from '../bloxity/BloxityContext'
 import { platform } from '../bloxity/platform'
-import { connect, disconnect, send } from './api'
+import { connect, disconnect, prefetch, send } from './api'
 
 const GUEST_KEY = 'gmn-guest-id'
 
@@ -36,14 +36,22 @@ export function useConnection() {
 
   const userId = user ? String(user._id ?? user.id ?? '') : ''
   const gid = guestId(guest)
-  const name =
-    identity?.displayName || identity?.username || `Guest${gid.replace(/[^a-z0-9]/gi, '').slice(0, 4)}`
+  const name = identity?.displayName || identity?.username || `Guest${gid.replace(/[^a-z0-9]/gi, '').slice(0, 4)}`
 
   // Latest avatar for the join options, without making it a reconnect trigger.
   const avatarRef = useRef({ avatar, proportions })
   useEffect(() => {
     avatarRef.current = { avatar, proportions }
   })
+
+  // Fetch the network code while the Bloxity SDK is still signing in (when the browser
+  // is idle, so it never competes with drawing the first frame).
+  useEffect(() => {
+    const id = window.requestIdleCallback
+      ? window.requestIdleCallback(prefetch, { timeout: 1200 })
+      : setTimeout(prefetch, 300)
+    return () => (window.cancelIdleCallback ? window.cancelIdleCallback(id) : clearTimeout(id))
+  }, [])
 
   // Disconnect on unmount only: an identity change must keep the current room so
   // connect() can rejoin that same room with the new identity.

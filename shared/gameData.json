@@ -1,6 +1,6 @@
 {
   "bloxity": {
-    "gameSlug": "guess-my-number",
+    "gameSlug": "poison-treats",
     "roomName": "game",
     "leaderboards": [
       {
@@ -38,40 +38,91 @@
     ]
   },
   "roomSize": 20,
-  "numberMin": 1,
-  "numberMax": 100,
+  "afk": {
+    "warnSeconds": 60,
+    "kickSeconds": 90
+  },
+  "bots": {
+    "enabled": true,
+    "maxBots": 10,
+    "rewardScale": 0.5,
+    "names": ["Max", "Luna", "Zed", "Mira", "Kai", "Nova", "Rex", "Pip", "Juno", "Otto", "Remy", "Skye"]
+  },
   "winReward": 200,
   "timing": {
     "countdown": 3,
-    "choose": 20,
-    "turn": 15,
-    "results": 4,
-    "guessReveal": 1.2,
-    "loserRespawn": 2
+    "poison": 15,
+    "turn": 12,
+    "results": 4.5,
+    "eatReveal": 1.5,
+    "loserRespawn": 2.6
   },
   "world": {
     "half": 31,
-    "spawn": [0, 0, 23]
+    "spawn": [
+      0,
+      0,
+      23
+    ]
   },
   "table": {
-    "width": 3.6,
-    "depth": 1.3,
+    "width": 2.5,
+    "depth": 1.7,
     "height": 0.82,
-    "seatX": 0.8,
-    "seatZ": 1.0,
+    "seatZ": 1.3,
     "sitRange": 4
   },
   "tables": [
-    { "id": 1, "x": -17, "z": -4 },
-    { "id": 2, "x": -8.5, "z": -4 },
-    { "id": 3, "x": 0, "z": -4 },
-    { "id": 4, "x": 8.5, "z": -4 },
-    { "id": 5, "x": 17, "z": -4 },
-    { "id": 6, "x": -17, "z": 6 },
-    { "id": 7, "x": -8.5, "z": 6 },
-    { "id": 8, "x": 0, "z": 6 },
-    { "id": 9, "x": 8.5, "z": 6 },
-    { "id": 10, "x": 17, "z": 6 }
+    {
+      "id": 1,
+      "x": 6.49,
+      "z": 9.1
+    },
+    {
+      "id": 2,
+      "x": 10.92,
+      "z": 3.98
+    },
+    {
+      "id": 3,
+      "x": 11.88,
+      "z": -2.71
+    },
+    {
+      "id": 4,
+      "x": 9.07,
+      "z": -8.86
+    },
+    {
+      "id": 5,
+      "x": 3.38,
+      "z": -12.51
+    },
+    {
+      "id": 6,
+      "x": -3.38,
+      "z": -12.51
+    },
+    {
+      "id": 7,
+      "x": -9.07,
+      "z": -8.86
+    },
+    {
+      "id": 8,
+      "x": -11.88,
+      "z": -2.71
+    },
+    {
+      "id": 9,
+      "x": -10.92,
+      "z": 3.98
+    },
+    {
+      "id": 10,
+      "x": -6.49,
+      "z": 9.1
+    }
   ],
   "leaderboards": [
     {
@@ -79,26 +130,26 @@
       "title": "TOP LEVELS ⭐",
       "format": "level",
       "x": -18,
-      "z": -16
+      "z": -20
     },
     {
       "id": "streaks",
       "title": "TOP STREAKS 🔥",
       "x": -6,
-      "z": -16
+      "z": -20
     },
     {
       "id": "wins",
       "title": "TOP WINS 🏆",
       "x": 6,
-      "z": -16
+      "z": -20
     },
     {
       "id": "playtime",
       "title": "MOST PLAYED ⏱️",
       "format": "duration",
       "x": 18,
-      "z": -16
+      "z": -20
     }
   ],
   "emoteShop": {
@@ -119,7 +170,10 @@
       "rarity": "common",
       "price": 100,
       "color": "#8a96a8",
-      "shop": [24.6, -10]
+      "shop": [
+        24.6,
+        -10
+      ]
     },
     {
       "id": "picnic",
@@ -127,7 +181,10 @@
       "rarity": "common",
       "price": 300,
       "color": "#e8504a",
-      "shop": [28.4, -10]
+      "shop": [
+        28.4,
+        -10
+      ]
     },
     {
       "id": "nature",
@@ -135,7 +192,10 @@
       "rarity": "uncommon",
       "price": 800,
       "color": "#2fd14f",
-      "shop": [24.6, -5]
+      "shop": [
+        24.6,
+        -5
+      ]
     },
     {
       "id": "candy",
@@ -143,7 +203,10 @@
       "rarity": "uncommon",
       "price": 1200,
       "color": "#ff7fc8",
-      "shop": [28.4, -5]
+      "shop": [
+        28.4,
+        -5
+      ]
     },
     {
       "id": "storm",
@@ -151,7 +214,10 @@
       "rarity": "rare",
       "price": 2000,
       "color": "#7fe3ff",
-      "shop": [24.6, 0]
+      "shop": [
+        24.6,
+        0
+      ]
     },
     {
       "id": "ocean",
@@ -159,7 +225,10 @@
       "rarity": "rare",
       "price": 3000,
       "color": "#2f7dff",
-      "shop": [28.4, 0]
+      "shop": [
+        28.4,
+        0
+      ]
     },
     {
       "id": "lava",
@@ -167,7 +236,10 @@
       "rarity": "epic",
       "price": 5000,
       "color": "#ff5a1f",
-      "shop": [24.6, 5]
+      "shop": [
+        24.6,
+        5
+      ]
     },
     {
       "id": "golden",
@@ -176,7 +248,10 @@
       "price": 9000,
       "color": "#ffc93d",
       "style": "throne",
-      "shop": [28.4, 5]
+      "shop": [
+        28.4,
+        5
+      ]
     },
     {
       "id": "void",
@@ -185,7 +260,10 @@
       "price": 16000,
       "color": "#9b3dff",
       "style": "throne",
-      "shop": [24.6, 10]
+      "shop": [
+        24.6,
+        10
+      ]
     },
     {
       "id": "diamond",
@@ -194,26 +272,29 @@
       "price": 30000,
       "color": "#8ff4ff",
       "style": "throne",
-      "shop": [28.4, 10]
+      "shop": [
+        28.4,
+        10
+      ]
     }
   ],
   "emotes": [
     {
-      "id": "higher",
-      "label": "HIGHER",
-      "icon": "⬆️",
+      "id": "yum",
+      "label": "YUM",
+      "icon": "😋",
       "price": 0
     },
     {
-      "id": "lower",
-      "label": "LOWER",
-      "icon": "⬇️",
+      "id": "sus",
+      "label": "SUS",
+      "icon": "🤨",
       "price": 0
     },
     {
-      "id": "close",
-      "label": "CLOSE",
-      "icon": "😬",
+      "id": "gulp",
+      "label": "GULP",
+      "icon": "😰",
       "price": 0
     },
     {
@@ -338,45 +419,41 @@
       "lol"
     ]
   },
-  "powers": {
-    "hint": 150,
-    "reveal": 600
-  },
   "quests": [
     {
       "id": "play3",
-      "label": "Play 3 Duels",
+      "label": "Play 3 Matches",
       "event": "play",
       "goal": 3,
       "reward": 300
     },
     {
       "id": "play6",
-      "label": "Play 6 Duels",
+      "label": "Play 6 Matches",
       "event": "play",
       "goal": 6,
       "reward": 700
     },
     {
       "id": "win2",
-      "label": "Win 2 Duels",
+      "label": "Win 2 Matches",
       "event": "win",
       "goal": 2,
       "reward": 500
     },
     {
       "id": "win5",
-      "label": "Win 5 Duels",
+      "label": "Win 5 Matches",
       "event": "win",
       "goal": 5,
       "reward": 1200
     },
     {
-      "id": "quickwin",
-      "label": "Win Within 3 Guesses",
-      "event": "quickwin",
-      "goal": 1,
-      "reward": 700
+      "id": "safe10",
+      "label": "Eat 10 Safe Treats",
+      "event": "safe",
+      "goal": 10,
+      "reward": 600
     },
     {
       "id": "streak3",
@@ -391,13 +468,6 @@
       "event": "emote",
       "goal": 5,
       "reward": 250
-    },
-    {
-      "id": "hint1",
-      "label": "Use a Hint",
-      "event": "hint",
-      "goal": 1,
-      "reward": 200
     }
   ],
   "gift": {
@@ -486,25 +556,25 @@
   "titles": [
     {
       "id": "t_rookie",
-      "name": "Rookie Guesser",
+      "name": "Sweet Tooth",
       "color": "#c8d0dc",
       "level": 5
     },
     {
       "id": "t_ninja",
-      "name": "Number Ninja",
+      "name": "Candy Ninja",
       "color": "#5cff5c",
       "level": 10
     },
     {
       "id": "t_reader",
-      "name": "Mind Reader",
+      "name": "Poison Proof",
       "color": "#4fd8ff",
       "level": 20
     },
     {
       "id": "t_master",
-      "name": "Guess Master",
+      "name": "Treat Master",
       "color": "#ffb21e",
       "level": 35
     },
@@ -516,7 +586,7 @@
     },
     {
       "id": "t_lucky",
-      "name": "Lucky Guess",
+      "name": "Lucky Bite",
       "color": "#7dff3a",
       "price": 500,
       "rarity": "common"
@@ -530,7 +600,7 @@
     },
     {
       "id": "t_pro",
-      "name": "Higher Lower Pro",
+      "name": "Iron Stomach",
       "color": "#2f9bff",
       "price": 4000,
       "rarity": "rare"
@@ -550,5 +620,17 @@
       "rarity": "legendary",
       "rainbow": true
     }
-  ]
+  ],
+  "candies": {
+    "cols": 6,
+    "rows": 4,
+    "spacingX": 0.36,
+    "spacingZ": 0.34
+  },
+  "safeReward": 10,
+  "ring": {
+    "x": 0,
+    "z": -1,
+    "radius": 12
+  }
 }

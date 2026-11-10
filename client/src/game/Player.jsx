@@ -4,7 +4,7 @@ import { Quaternion, Vector3 } from 'three'
 
 import { sfx } from '../audio/sfx'
 import { useGame } from '../net/gameStore'
-import { avatarAnchors, localPlayer, SELF_ANCHOR, touchInput } from '../net/liveState'
+import { avatarAnchors, eatingSince, localPlayer, SELF_ANCHOR, touchInput } from '../net/liveState'
 import { COLLIDERS, PLAYER_HEIGHT, WORLD_HALF } from './layout'
 import Nametag from './Nametag'
 import PlayerAvatar from './PlayerAvatar'
@@ -115,7 +115,7 @@ export function Player({ onAvatarReady }) {
       localPlayer.speed = 0
       localPlayer.grounded = true
       group.position.copy(pos)
-      poseAtSeat(visual, tagRef.current, seat, motion, delta)
+      poseAtSeat(visual, tagRef.current, seat, motion, delta, eatingSince.get(useGame.getState().selfId))
       atSeat.current = true
       localPlayer.emote = null
       motion.emote = null
@@ -199,7 +199,7 @@ export function Player({ onAvatarReady }) {
   return (
     <group ref={groupRef} position={localPlayer.position.toArray()}>
       <group ref={visualRef} rotation={[0, localPlayer.ry, 0]}>
-        <PlayerAvatar onReady={onAvatarReady} targetHeight={PLAYER_HEIGHT} motionRef={motionRef} />
+        <PlayerAvatar onReady={onAvatarReady} targetHeight={PLAYER_HEIGHT} motionRef={motionRef} topKey={SELF_ANCHOR} />
       </group>
       <group ref={tagRef}>
         {selfId && <Nametag id={selfId} name={name || 'You'} streak={streak} title={title} isSelf />}

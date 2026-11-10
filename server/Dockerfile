@@ -1,6 +1,6 @@
 # Game server image for Bloxity hosting. Build from the repo root, since the server
 # reads ../shared/gameData.json:
-#   docker build -f server/Dockerfile -t guess-my-number-server .
+#   docker build -f server/Dockerfile -t poison-treats-server .
 FROM node:22-alpine
 
 WORKDIR /app/server

@@ -1,26 +1,26 @@
 const DATA = require('./data')
 
-const MIN = DATA.numberMin
-const MAX = DATA.numberMax
 const T = DATA.timing
+/** Treats on every table, laid out in a cols x rows grid. */
+const COUNT = DATA.candies.cols * DATA.candies.rows
 
-const randomInt = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1))
-const isValidNumber = (n) => Number.isInteger(n) && n >= MIN && n <= MAX
+const isCandy = (n) => Number.isInteger(n) && n >= 0 && n < COUNT
+const pickRandom = (list) => list[Math.floor(Math.random() * list.length)]
 
 /**
- * One two-seat table and the duel played at it.
+ * One two-seat table and the match played at it. The players sit face to face
+ * across a grid of treats.
  *
  * Phases:
  *   waiting   - zero or one player seated
  *   countdown - both seats filled, "Starting in 3..."
- *   choosing  - each player secretly picks 1-100
- *   guessing  - players take turns guessing the other's number; the server answers
- *               "Higher" / "Lower" on the opponent's behalf
+ *   poisoning - each player secretly poisons one treat
+ *   eating    - players take turns eating a treat; whoever bites a poisoned one
+ *               (either player's) loses
  *   ended     - result on screen; both players are stood up when it runs out
  *
- * The server holds both secrets. A client only ever learns its own number, the range
- * its guesses have narrowed the opponent's down to, and the opponent's number if it
- * paid to reveal it.
+ * The server holds both poisons. A client only ever learns its own poison until
+ * the match is over.
  */
 class Table {
   /**
@@ -43,24 +43,26 @@ class Table {
   reset() {
     this.phase = 'waiting'
     this.endsAt = 0
-    this.secrets = [null, null]
-    /** ranges[i] = what seat i has narrowed seat (1-i)'s number down to. */
-    this.ranges = [
-      [MIN, MAX],
-      [MIN, MAX],
-    ]
-    this.guesses = [0, 0]
-    /** history[i] = seat i's guesses so far: [{ n, answer: 'higher'|'lower'|'correct' }]. */
-    this.history = [[], []]
+    /** poison[i] = the treat seat i poisoned, -1 until chosen. */
+    this.poison = [-1, -1]
+    this.eaten = new Array(COUNT).fill(false)
+    /** Safe treats each seat has eaten this match. */
+    this.safe = [0, 0]
     this.turn = 0
-    /** Seat index of the winner once the duel has ended, else -1. */
+    /** Seat index of the winner once the match has ended, else -1. */
     this.winner = -1
-    this.revealed = [false, false]
+    /** The treat that ended the match (or -1). */
+    this.fatal = -1
     this.timeouts = [0, 0]
-    /** True between a guess and its answer, so a second guess can't sneak in. */
+    /** True between a bite and its outcome, so a second bite can't sneak in. */
     this.pending = false
     // Invalidates any setTimeout scheduled for the previous match.
     this.token += 1
+  }
+
+  /** Is one of the seats a practice bot? */
+  vsBot() {
+    return this.seats.some((s) => s?.isBot)
   }
 
   seatOf(session) {
@@ -89,9 +91,9 @@ class Table {
     if (i < 0) return
     const other = this.seats[1 - i]
 
-    if (this.phase === 'guessing') {
+    if (this.phase === 'eating') {
       this.finish(1 - i, i, 'forfeit', now)
-    } else if (this.phase === 'countdown' || this.phase === 'choosing') {
+    } else if (this.phase === 'countdown' || this.phase === 'poisoning') {
       other?.toast('Your opponent left the table')
     }
 
@@ -112,109 +114,70 @@ class Table {
     session.send('match', { match: null })
   }
 
-  pick(session, n, now) {
+  /** Secretly poisons one treat. */
+  poisonCandy(session, n, now) {
     const i = this.seatOf(session)
-    if (i < 0 || this.phase !== 'choosing' || this.secrets[i] !== null) return
-    if (!isValidNumber(n)) return
-
-    this.secrets[i] = n
-    this.room.bubble(session, 'Ready ✅')
-    if (this.secrets[1 - i] !== null) this.startGuessing(now)
+    if (i < 0 || this.phase !== 'poisoning' || this.poison[i] >= 0 || !isCandy(n)) return
+    this.poison[i] = n
+    this.room.bubble(session, 'Poisoned one 🧪')
+    if (this.poison[1 - i] >= 0) this.startEating(now)
     else this.sync(now)
   }
 
-  guess(session, n, now) {
+  /** Bites a treat. The outcome lands after a moment of suspense. */
+  eat(session, n, now) {
     const i = this.seatOf(session)
-    if (i < 0 || this.phase !== 'guessing' || this.turn !== i || this.pending) return
-    const [lo, hi] = this.ranges[i]
-    if (!isValidNumber(n) || n < lo || n > hi) return
-
-    this.guesses[i] += 1
+    if (i < 0 || this.phase !== 'eating' || this.turn !== i || this.pending) return
+    if (!isCandy(n) || this.eaten[n]) return
     this.timeouts[i] = 0
+    this.bite(i, n, now)
+  }
+
+  bite(i, n, now) {
+    this.eaten[n] = true
     this.pending = true
-    this.room.bubble(session, `Is your number ${n}? 🤔`)
-    // Both players see the guess land, then (after the suspense) the answer.
-    this.tell({ t: 'guessed', by: i, n })
+    // Everyone nearby sees the treat lifted and munched.
+    this.room.broadcast('eat', { table: this.id, i: n, by: this.seats[i]?.id ?? '' })
     this.sync(now)
 
     const token = this.token
     // Room clock: cleared automatically if the room is disposed meanwhile.
     this.room.clock.setTimeout(() => {
-      if (this.token !== token || this.phase !== 'guessing') return
-      this.resolveGuess(i, n, Date.now())
-    }, T.guessReveal * 1000)
+      if (this.token !== token || this.phase !== 'eating') return
+      this.resolveBite(i, n, Date.now())
+    }, T.eatReveal * 1000)
   }
 
-  resolveGuess(i, n, now) {
-    const o = 1 - i
-    const secret = this.secrets[o]
-    if (n === secret) {
-      this.history[i].push({ n, answer: 'correct' })
-      this.tell({ t: 'answer', by: i, n, answer: 'correct' })
-      this.finish(i, o, 'guessed', now)
+  resolveBite(i, n, now) {
+    const eater = this.seats[i]
+    const poisoned = this.poison[0] === n || this.poison[1] === n
+    if (poisoned) {
+      this.room.broadcast('bite', { table: this.id, i: n, by: eater?.id ?? '', poisoned: true })
+      this.fatal = n
+      this.finish(1 - i, i, 'poisoned', now)
       return
     }
-    const answer = n < secret ? 'higher' : 'lower'
-    this.history[i].push({ n, answer })
-    this.tell({ t: 'answer', by: i, n, answer })
-    if (answer === 'higher') {
-      this.ranges[i][0] = n + 1
-      this.room.bubble(this.seats[o], 'Higher 👆')
-    } else {
-      this.ranges[i][1] = n - 1
-      this.room.bubble(this.seats[o], 'Lower 👇')
+
+    this.safe[i] += 1
+    let reward = 0
+    if (eater) {
+      reward = this.room.recordSafeBite(eater, now, this.vsBot())
+      this.room.bubble(eater, 'SAFE 😋')
     }
-    this.turn = o
+    this.room.broadcast('bite', { table: this.id, i: n, by: eater?.id ?? '', poisoned: false, reward })
+    this.turn = 1 - i
     this.beginTurn(now)
   }
 
-  /**
-   * A duel event for both seated players, from each one's point of view: `mine`
-   * is true for the player who made the guess.
-   */
-  tell({ t, by, ...rest }) {
-    this.seats.forEach((s, i) => s?.send('duel', { t, mine: i === by, ...rest }))
-  }
-
-  /** Paid power-ups. Returns an error string, or null on success. */
-  power(session, kind, now) {
-    const i = this.seatOf(session)
-    if (i < 0 || this.phase !== 'guessing') return 'Power-ups work during guessing'
-    const cost = DATA.powers[kind]
-    if (cost === undefined) return 'Unknown power-up'
-    if (session.profile.cash < cost) return `You need $${cost}`
-
-    if (kind === 'hint') {
-      const [lo, hi] = this.ranges[i]
-      const width = hi - lo + 1
-      if (width <= 3) return 'Already narrowed down!'
-      const secret = this.secrets[1 - i]
-      const span = Math.max(3, Math.ceil(width / 4))
-      const start = randomInt(Math.max(lo, secret - span + 1), Math.min(secret, hi - span + 1))
-      this.ranges[i] = [start, start + span - 1]
-      session.toast(`Hint: it's between ${start} and ${start + span - 1}`)
-    } else if (kind === 'reveal') {
-      if (this.revealed[i]) return 'Already revealed'
-      this.revealed[i] = true
-      session.toast(`Their number is ${this.secrets[1 - i]} 👀`)
-    }
-    if (kind === 'hint') this.room.questEvent(session, 'hint', now)
-
-    session.profile.cash -= cost
-    session.pushProfile(now)
-    this.sync(now)
-    return null
-  }
-
-  startChoosing(now) {
-    this.phase = 'choosing'
-    this.endsAt = now + T.choose * 1000
-    for (const s of this.seats) this.room.bubble(s, 'Choosing 🤔')
+  startPoisoning(now) {
+    this.phase = 'poisoning'
+    this.endsAt = now + T.poison * 1000
+    for (const s of this.seats) this.room.bubble(s, 'Poisoning… 🧪')
     this.sync(now)
   }
 
-  startGuessing(now) {
-    this.phase = 'guessing'
+  startEating(now) {
+    this.phase = 'eating'
     this.turn = Math.random() < 0.5 ? 0 : 1
     this.beginTurn(now)
   }
@@ -223,6 +186,14 @@ class Table {
     this.pending = false
     this.endsAt = now + T.turn * 1000
     this.sync(now)
+  }
+
+  /** Uneaten treats, leaving out `avoid` when anything else is left. */
+  choices(avoid) {
+    const all = []
+    for (let n = 0; n < COUNT; n += 1) if (!this.eaten[n]) all.push(n)
+    const others = all.filter((n) => n !== avoid)
+    return others.length ? others : all
   }
 
   finish(w, l, reason, now) {
@@ -235,17 +206,20 @@ class Table {
     const loser = this.seats[l]
     let reward = 0
 
-    if (winner) reward = this.room.recordWin(winner, this.guesses[w], now)
+    // A practice match (against a bot) pays less and doesn't count for the boards.
+    const vsBot = this.vsBot()
+    if (winner) reward = this.room.recordWin(winner, now, vsBot)
     let consolation = 0
-    if (loser) consolation = this.room.recordLoss(loser, now, reason)
-    if (loser) this.room.bubble(loser, 'NOOO! 💀')
-    if (winner) this.room.bubble(winner, reason === 'forfeit' ? 'GG 👍' : 'Got it! 😎')
+    if (loser) consolation = this.room.recordLoss(loser, now, reason, vsBot)
+    if (loser) this.room.bubble(loser, reason === 'poisoned' ? 'BLEHH ☠️' : '')
+    if (winner) this.room.bubble(winner, reason === 'poisoned' ? 'Hehe 😈' : 'GG 👍')
 
     this.room.broadcast('result', {
       table: this.id,
       winner: winner?.id ?? null,
       loser: loser?.id ?? null,
-      numbers: [...this.secrets],
+      poisons: [...this.poison],
+      fatal: this.fatal,
       reward,
       consolation,
       reason,
@@ -254,8 +228,8 @@ class Table {
     // Round end: report leaderboard scores now rather than at the next batch.
     this.room.flushScores()
 
-    // The loser falls apart at the table, then respawns back in the lobby while
-    // the winner keeps dancing on their chair.
+    // The poisoned player falls apart at the table, then respawns back in the
+    // lobby while the winner keeps dancing on their chair.
     const token = this.token
     this.room.clock.setTimeout(() => {
       if (this.token !== token || this.seats[l] !== loser || !loser) return
@@ -269,25 +243,24 @@ class Table {
     if (this.phase === 'waiting' || now < this.endsAt) return
 
     if (this.phase === 'countdown') {
-      this.startChoosing(now)
-    } else if (this.phase === 'choosing') {
-      // Too slow to choose: the server chooses for you.
-      this.secrets.forEach((s, i) => {
-        if (s === null) {
-          this.secrets[i] = randomInt(MIN, MAX)
-          this.seats[i]?.toast(`Out of time! Your number is ${this.secrets[i]}`)
-        }
+      this.startPoisoning(now)
+    } else if (this.phase === 'poisoning') {
+      // Too slow to choose: the server poisons one for you.
+      this.poison.forEach((p, i) => {
+        if (p >= 0) return
+        this.poison[i] = Math.floor(Math.random() * COUNT)
+        this.seats[i]?.toast('Out of time! A random treat was poisoned 🧪')
       })
-      this.startGuessing(now)
-    } else if (this.phase === 'guessing' && !this.pending) {
+      this.startEating(now)
+    } else if (this.phase === 'eating' && !this.pending) {
       const slow = this.turn
       this.timeouts[slow] += 1
       if (this.timeouts[slow] >= 2) {
         this.finish(1 - slow, slow, 'afk', now)
       } else {
-        this.seats[slow]?.toast('Too slow! Turn skipped')
-        this.turn = 1 - slow
-        this.beginTurn(now)
+        // Too slow: a random treat (never your own poison, if there's a choice).
+        this.seats[slow]?.toast('Too slow! A random treat was picked')
+        this.bite(slow, pickRandom(this.choices(this.poison[slow])), now)
       }
     } else if (this.phase === 'ended') {
       this.unseat(0)
@@ -304,18 +277,15 @@ class Table {
       seat: i,
       phase: this.phase,
       endsInMs: Math.max(0, this.endsAt - now),
-      myNumber: this.secrets[i],
-      range: [...this.ranges[i]],
-      myTurn: this.phase === 'guessing' && this.turn === i && !this.pending,
-      theirTurn: this.phase === 'guessing' && this.turn === o,
+      myPoison: this.poison[i],
+      myTurn: this.phase === 'eating' && this.turn === i && !this.pending,
+      theirTurn: this.phase === 'eating' && this.turn === o,
       pending: this.pending,
-      guesses: this.guesses[i],
-      myHistory: this.history[i],
-      theirHistory: this.history[o],
+      mySafe: this.safe[i],
+      theirSafe: this.safe[o],
       won: this.phase === 'ended' && this.winner === i,
-      revealed: this.revealed[i] ? this.secrets[o] : null,
       opponent: this.seats[o]?.id ?? null,
-      opponentReady: this.secrets[o] !== null,
+      opponentReady: this.poison[o] >= 0,
     }
   }
 
@@ -330,11 +300,16 @@ class Table {
     st.seat1 = this.seats[1]?.id ?? ''
     st.chair0 = this.seats[0]?.profile.equippedChair ?? ''
     st.chair1 = this.seats[1]?.profile.equippedChair ?? ''
-    st.turn = this.phase === 'guessing' ? (this.seats[this.turn]?.id ?? '') : ''
+    st.turn = this.phase === 'eating' ? (this.seats[this.turn]?.id ?? '') : ''
     st.winner = this.phase === 'ended' ? (this.seats[this.winner]?.id ?? '') : ''
     st.endsAt = this.phase === 'waiting' ? 0 : this.endsAt
+    st.eaten = this.eaten.map((e) => (e ? '1' : '0')).join('')
+    // Both poisons go public once the match is over, for everyone watching.
+    st.poisons = this.phase === 'ended' ? this.poison.join(',') : ''
     this.seats.forEach((s, i) => s?.send('match', { match: this.privateState(i, now) }))
   }
 }
+
+Table.COUNT = COUNT
 
 module.exports = Table
