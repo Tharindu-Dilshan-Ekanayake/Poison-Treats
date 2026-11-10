@@ -5,6 +5,7 @@ import { Vector3 } from 'three'
 import { usePlatform } from '../bloxity/platform'
 import { useGame } from '../net/gameStore'
 import { localPlayer } from '../net/liveState'
+import { TABLE } from './layout'
 
 /** How high above the player's feet the camera aims. */
 const LOOK_HEIGHT = 2
@@ -34,18 +35,23 @@ const LOOK_SMOOTHING = 8
 const TABLE_SMOOTHING = 3
 
 /**
- * Seated view: over your own shoulder, high enough to see every treat on the table
- * and your opponent sitting across from you.
+ * Seated view: from the end of the table, looking down its length. The two seats are
+ * on its long sides, so you sit on the left of the screen, your opponent on the right,
+ * and every treat is in the middle, with nobody's head in front of anything.
  */
-const TABLE_CAM_BACK = 1.35
-const TABLE_CAM_HEIGHT = 3.0
+const TABLE_CAM_DIST = 3.6
+const TABLE_CAM_HEIGHT = 2.7
 const TABLE_LOOK_HEIGHT = 0.85
-/** How far past the table's centre (towards the opponent) the camera aims. */
-const TABLE_LOOK_AHEAD = 1.55
-/** Pulled back and higher while the winner dances up on the table. */
-const WIN_CAM_BACK = 2.6
+/**
+ * Half the width of table the view must always hold (the two seats are 1.3 either
+ * side of the middle, plus the players' shoulders): on a narrow phone screen the
+ * camera backs off until this fits.
+ */
+const TABLE_HALF_WIDTH = 2.3
+/** The winner dances up on the table: a little further back, higher, aiming higher. */
+const WIN_CAM_EXTRA = 0.9
 const WIN_CAM_HEIGHT = 3.3
-const TABLE_LOOK_HEIGHT_WIN = 1.6
+const TABLE_LOOK_HEIGHT_WIN = 1.3
 
 const _desired = new Vector3()
 const _target = new Vector3()
@@ -145,16 +151,17 @@ export function FollowCamera() {
     const seat = match && localPlayer.seat
 
     if (seat) {
-      // Facing of the seat: towards the table and the opponent.
-      const fx = Math.sin(seat.ry)
-      const fz = Math.cos(seat.ry)
-      const back = match.won ? WIN_CAM_BACK : TABLE_CAM_BACK
-      _desired.set(seat.x - fx * back, match.won ? WIN_CAM_HEIGHT : TABLE_CAM_HEIGHT, seat.z - fz * back)
-      _target.set(
-        seat.x + fx * TABLE_LOOK_AHEAD,
-        match.won ? TABLE_LOOK_HEIGHT_WIN : TABLE_LOOK_HEIGHT,
-        seat.z + fz * TABLE_LOOK_AHEAD,
-      )
+      // Seat 0 (yaw 0) is on the table's -Z side, seat 1 on its +Z side. Looking along
+      // +X puts -Z on the left, along -X puts it on the right, so the camera stands at
+      // the -X end for seat 0 and the +X end for seat 1: you are always on the left.
+      const side = seat.ry === 0 ? -1 : 1
+      const centreZ = seat.z + Math.cos(seat.ry) * TABLE.seatZ
+      // Back off far enough that TABLE_HALF_WIDTH fits across the screen (narrow
+      // phone screens have a narrow view).
+      const fit = TABLE_HALF_WIDTH / (Math.tan((camera.fov * Math.PI) / 360) * camera.aspect)
+      const dist = Math.max(TABLE_CAM_DIST, fit) + (match.won ? WIN_CAM_EXTRA : 0)
+      _desired.set(seat.x + side * dist, match.won ? WIN_CAM_HEIGHT : TABLE_CAM_HEIGHT, centreZ)
+      _target.set(seat.x, match.won ? TABLE_LOOK_HEIGHT_WIN : TABLE_LOOK_HEIGHT, centreZ)
       const k = 1 - Math.pow(0.001, delta * (TABLE_SMOOTHING / 10) * 3)
       camera.position.lerp(_desired, k)
       lookAt.current.lerp(_target, k)
